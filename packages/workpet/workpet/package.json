@@ -1,6 +1,6 @@
 {
   "name": "dsh-workpet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Work pet capability for DeepSeek Harness: a floating pet whose actions mirror what the current Session is doing, with swappable appearances contributed by other plugins.",
   "license": "MIT",
   "type": "module",
@@ -45,7 +45,7 @@
     "url": "git+https://github.com/lastorder/dsh-workpet.git",
     "directory": "packages/workpet/workpet"
   },
-  "homepage": "https://github.com/lastorder/dsh-workpet/tree/main/packages/workpet/workpet#readme",
+  "homepage": "https://github.com/lastorder/dsh-workpet#readme",
   "bugs": {
     "url": "https://github.com/lastorder/dsh-workpet/issues"
   },

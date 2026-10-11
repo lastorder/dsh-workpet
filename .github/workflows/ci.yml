@@ -50,4 +50,4 @@ jobs:
       - name: Check the published packages are releasable
         run: |
           pnpm run release:check
-          node scripts/release.mjs pin --dry-run
+          node scripts/release.mjs prepare --dry-run

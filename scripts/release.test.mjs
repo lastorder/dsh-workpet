@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { pinManifest, PUBLISHED } from './release.mjs'
+import { readFileSync } from 'node:fs'
+import { absolutizeLinks, npmReadmes, pinManifest, PUBLISHED, README_FROM_ROOT, relativeLinks } from './release.mjs'
 
 const versions = new Map([['dsh-workpet-cat', '0.1.0'], ['dsh-workpet', '0.1.0']])
 
@@ -39,5 +40,35 @@ describe('pinManifest', () => {
 describe('PUBLISHED', () => {
   it('publishes the default kitten before the capability that depends on it', () => {
     assert.deepEqual(PUBLISHED, ['packages/workpet/workpet-cat', 'packages/workpet/workpet'])
+  })
+})
+
+describe('npm READMEs', () => {
+  const base = 'https://github.com/lastorder/dsh-workpet/blob/v1.2.3/'
+
+  it('makes relative links absolute and leaves anchors, web, and mail links alone', () => {
+    const markdown = '[zh](README.zh.md) [arch](docs/architecture.md#the-interface) [up](../x.md) [a](#install) [w](https://example.com) [m](mailto:a@b.c)'
+    const rewritten = absolutizeLinks(markdown, `${base}packages/workpet/workpet-cat/`)
+    assert.equal(rewritten, `[zh](${base}packages/workpet/workpet-cat/README.zh.md) [arch](${base}packages/workpet/workpet-cat/docs/architecture.md#the-interface) [up](${base}packages/workpet/x.md) [a](#install) [w](https://example.com) [m](mailto:a@b.c)`)
+    assert.deepEqual(relativeLinks(rewritten), [])
+    assert.deepEqual(relativeLinks(markdown), ['README.zh.md', 'docs/architecture.md#the-interface', '../x.md'])
+  })
+
+  it('gives dsh-workpet the repository root README, with links resolved from the root', () => {
+    assert.ok(README_FROM_ROOT.has('packages/workpet/workpet'))
+    const files = [...npmReadmes('packages/workpet/workpet', 'v1.2.3')]
+    const [file, content] = files.find(([name]) => name.endsWith('packages/workpet/workpet/README.md'))
+    assert.ok(file.endsWith('packages/workpet/workpet/README.md'))
+    const rootReadme = readFileSync(new URL('../README.md', import.meta.url), 'utf8')
+    assert.equal(content.split('\n', 1)[0], rootReadme.split('\n', 1)[0])
+    assert.match(content, /\]\(https:\/\/github\.com\/lastorder\/dsh-workpet\/blob\/v1\.2\.3\/docs\/architecture\.md\)/)
+    assert.deepEqual(relativeLinks(content), [])
+    assert.equal(files.length, 2, 'README.md and README.zh.md')
+  })
+
+  it('keeps the kitten package README, with links resolved from its own directory', () => {
+    const [, content] = [...npmReadmes('packages/workpet/workpet-cat', 'main')][0]
+    assert.match(content, /^# dsh-workpet-cat/)
+    assert.match(content, /\(https:\/\/github\.com\/lastorder\/dsh-workpet\/blob\/main\/packages\/workpet\/workpet-cat\/README\.zh\.md\)/)
   })
 })

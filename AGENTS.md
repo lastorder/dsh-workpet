@@ -12,7 +12,7 @@ packages/<group>/<package>/   one npm package each
   locale/*.json, icon.svg     Plugin Manager display metadata
   LICENSE                     copy of the root LICENSE (npm only packs files inside the package)
 scripts/build.mjs             shared build for every package
-scripts/release.mjs           published-package list, version bump, release check, workspace-range pinning
+scripts/release.mjs           published-package list, version bump, release check, npm preparation (ranges, READMEs)
 scripts/testing/              harness that loads built Client halves
 docs/                         architecture (English + 中文)
 .github/workflows/            ci.yml (verify on push/PR), release.yml (tag → npm stage + GitHub Release)
@@ -29,7 +29,7 @@ pnpm run typecheck
 pnpm run test           # needs a prior build: *.test.mjs load lib/client.js
 pnpm run verify         # build + typecheck + test
 pnpm run release:check  # every published package has the root version and its build output
-node scripts/release.mjs pin --dry-run   # show how workspace: ranges will be pinned at publish time
+node scripts/release.mjs prepare --dry-run   # show the npm preparation: pinned ranges and the READMEs npm will show
 pnpm run release:version <x.y.z>
 pnpm run release:publish   # one-time manual first publish only; releases go through release.yml
 ```
@@ -50,14 +50,19 @@ pnpm run release:publish   # one-time manual first publish only; releases go thr
 
 Published packages are listed in `PUBLISHED` in [scripts/release.mjs](scripts/release.mjs): `dsh-workpet-cat`, then `dsh-workpet` (a dependency before the package that depends on it). They share **one version** and are released together from one `vX.Y.Z` tag. The root package is `private` and never published. `lib/` is not committed; CI builds it.
 
-In the repository, `dsh-workpet` depends on `dsh-workpet-cat` as `workspace:^`, which npm cannot install. `node scripts/release.mjs pin` rewrites such ranges to the real version (`^X.Y.Z`) in the checkout before publishing; release.yml runs it, and `pnpm run release:publish` runs it and restores the manifests afterwards. Each package's `prepublishOnly` (`release.mjs check --packed`) refuses to publish while a `workspace:` range remains, so a bare `npm publish` in a package directory fails instead of shipping a broken dependency. Never commit pinned manifests.
+`node scripts/release.mjs prepare` makes the checkout npm-ready before publishing; release.yml runs it, and `pnpm run release:publish` runs it and restores the changed files afterwards. Never commit its output.
+
+- **Dependency ranges.** In the repository, `dsh-workpet` depends on `dsh-workpet-cat` as `workspace:^`, which npm cannot install; `prepare` rewrites it to `^X.Y.Z`.
+- **npm READMEs.** npm shows the `README.md` inside the package. `dsh-workpet` (listed in `README_FROM_ROOT`) gets the repository's root `README.md`/`README.zh.md`, because its npm page is the project's front page; `dsh-workpet-cat` keeps its own. Every relative link becomes a GitHub URL pinned to the release tag (`main` outside CI), because relative links break on npmjs.com. The in-repo `packages/workpet/workpet/README*.md` stay package-level docs for GitHub browsing. `homepage` in `dsh-workpet`'s `package.json` points at the repository root to match.
+
+Each package's `prepublishOnly` (`release.mjs check --packed`) refuses to publish while a `workspace:` range or a relative README link remains, or while `dsh-workpet`'s README is not the root one, so a bare `npm publish` in a package directory fails instead of shipping a broken package.
 
 ### One-time setup, before the first tag
 
 [release.yml](.github/workflows/release.yml) authenticates only through npm's token-free OIDC Trusted Publishing, which must be configured on packages that already exist. Do this once by hand (needs your npm login and 2FA):
 
 1. From a clean checkout: `pnpm install && pnpm run verify && pnpm run release:check`.
-2. `npm login`, then publish each package once, in `PUBLISHED` order. Run this from the repository root (a bare `npm publish` there is refused: the root is the private workspace package); it verifies, pins, publishes, and restores the manifests:
+2. `npm login`, then publish each package once, in `PUBLISHED` order. Run this from the repository root (a bare `npm publish` there is refused: the root is the private workspace package); it verifies, prepares, publishes, and restores the changed files:
    ```sh
    pnpm run release:publish            # npm publish in packages/workpet/workpet-cat, then packages/workpet/workpet
    pnpm run release:publish --dry-run  # rehearsal; extra arguments are passed to npm publish
@@ -70,7 +75,7 @@ In the repository, `dsh-workpet` depends on `dsh-workpet-cat` as `workspace:^`, 
 2. `pnpm run verify && pnpm run release:check`.
 3. Commit as `Release vX.Y.Z: <summary>` with a prose body; this message becomes the GitHub Release notes verbatim.
 4. `git tag -a vX.Y.Z -m "Release vX.Y.Z"` and `git push origin main vX.Y.Z`.
-5. release.yml verifies, checks the tag against every package version, pins `workspace:` ranges, runs `npm stage publish` in each package directory in `PUBLISHED` order, packs both tarballs, and creates a GitHub Release **marked pre-release**.
+5. release.yml verifies, checks the tag against every package version, runs `release.mjs prepare`, runs `npm stage publish` in each package directory in `PUBLISHED` order, packs both tarballs, and creates a GitHub Release **marked pre-release**.
 6. **Approve the stage**, `dsh-workpet-cat` first, because `dsh-workpet@X.Y.Z` depends on `dsh-workpet-cat@^X.Y.Z`: `https://www.npmjs.com/package/dsh-workpet-cat?activeTab=versions`, then `https://www.npmjs.com/package/dsh-workpet?activeTab=versions` (or `npm stage ls` / `npm stage approve`, 2FA). Then uncheck "pre-release" on the GitHub Release.
 
 A release that changes `src/client/contract.ts` incompatibly needs a major version bump (a minor one while the version is `0.x`) and a note in the release commit body for provider authors; update dsh-workpet-parrot in the same round.

@@ -50,13 +50,16 @@ jobs:
         # before anything is staged.
         run: node scripts/release.mjs check "${GITHUB_REF_NAME#v}"
 
-      - name: Pin workspace dependency ranges
-        # dsh-workpet depends on dsh-workpet-cat as `workspace:^` in the
-        # repository; npm cannot install that range, so rewrite it to the real
-        # version in this checkout only (never committed). Each package's
-        # prepublishOnly (`release.mjs check --packed`) refuses to publish a
-        # manifest that still has a workspace: range.
-        run: node scripts/release.mjs pin
+      - name: Prepare the packages for npm
+        # In this checkout only (never committed):
+        # - dsh-workpet depends on dsh-workpet-cat as `workspace:^`, which npm
+        #   cannot install; rewrite it to the released version.
+        # - npm shows the README inside each package. dsh-workpet gets the
+        #   repository's root README; every README's relative links become
+        #   GitHub URLs pinned to this tag, so they work on npmjs.com.
+        # Each package's prepublishOnly (`release.mjs check --packed`)
+        # refuses to publish if either step was skipped.
+        run: node scripts/release.mjs prepare
 
       - name: Stage on npm
         # No token: every published package has a Trusted Publisher
