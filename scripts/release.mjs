@@ -6,7 +6,10 @@
  *   node scripts/release.mjs check [<x.y.z>]   fail unless every published package has that version
  *                                              (default: the root version) and its build output exists
  *   node scripts/release.mjs list              print the published package directories, one per line
+ *   node scripts/release.mjs publish [args]    run `npm publish [args]` in every published package, in order
+ *                                              (the one-time manual first publish; releases use release.yml)
  */
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -61,6 +64,16 @@ switch (command) {
   case 'list':
     for (const dir of PUBLISHED) console.log(dir)
     break
+  case 'publish': {
+    // Each package's prepublishOnly re-runs verify and the release check;
+    // stdio is inherited so npm can prompt for the 2FA one-time password.
+    const extra = process.argv.slice(3)
+    for (const dir of PUBLISHED) {
+      console.log(`\n== npm publish ${extra.join(' ')} in ${dir}`)
+      execFileSync('npm', ['publish', ...extra], { cwd: join(root, dir), stdio: 'inherit' })
+    }
+    break
+  }
   default:
-    fail('usage: release.mjs version <x.y.z> | check [<x.y.z>] | list')
+    fail('usage: release.mjs version <x.y.z> | check [<x.y.z>] | list | publish [npm args]')
 }

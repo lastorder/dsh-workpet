@@ -30,6 +30,7 @@ pnpm run test           # needs a prior build: *.test.mjs load lib/client.js
 pnpm run verify         # build + typecheck + test
 pnpm run release:check  # every published package has the root version and its build output
 pnpm run release:version <x.y.z>
+pnpm run release:publish   # one-time manual first publish only; releases go through release.yml
 ```
 
 ## Conventions
@@ -53,10 +54,10 @@ Published packages are listed in `PUBLISHED` in [scripts/release.mjs](scripts/re
 [release.yml](.github/workflows/release.yml) authenticates only through npm's token-free OIDC Trusted Publishing, which must be configured on packages that already exist. Do this once by hand (needs your npm login and 2FA):
 
 1. From a clean checkout: `pnpm install && pnpm run verify && pnpm run release:check`.
-2. `npm login`, then publish each package once, capability first:
+2. `npm login`, then publish each package once, capability first. Run this from the repository root (a bare `npm publish` there is refused: the root is the private workspace package):
    ```sh
-   (cd packages/workpet/workpet && npm publish)
-   (cd packages/workpet/workpet-cat && npm publish)
+   pnpm run release:publish            # npm publish in packages/workpet/workpet, then packages/workpet/workpet-cat
+   pnpm run release:publish --dry-run  # rehearsal; extra arguments are passed to npm publish
    ```
 3. On npmjs.com, for **each** of `dsh-workpet` and `dsh-workpet-cat`: Settings → Trusted Publisher → GitHub Actions, repository `lastorder/dsh-workpet`, workflow file `.github/workflows/release.yml`, restricted to **stage-only**.
 

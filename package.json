@@ -15,7 +15,9 @@
     "verify": "pnpm run build && pnpm run typecheck && pnpm run test",
     "clean": "node scripts/clean.mjs",
     "release:version": "node scripts/release.mjs version",
-    "release:check": "node scripts/release.mjs check"
+    "release:check": "node scripts/release.mjs check",
+    "release:publish": "node scripts/release.mjs publish",
+    "prepublishOnly": "node -e \"console.error('dsh-workpet-root is the private workspace root and is never published. Publish the packages with: pnpm run release:publish'); process.exit(1)\""
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
