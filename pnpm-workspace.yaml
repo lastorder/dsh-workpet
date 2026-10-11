@@ -1,0 +1,8 @@
+packages:
+  # Capability family packages live at packages/<group>/<package>/.
+  - packages/*/*
+
+# esbuild's install script only verifies its platform binary, which pnpm
+# already installs as an optional dependency.
+allowBuilds:
+  esbuild: false

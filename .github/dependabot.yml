@@ -1,0 +1,38 @@
+version: 2
+
+# Keeps the toolchain from silently drifting.
+updates:
+  # GitHub Actions, grouped into one PR. softprops/action-gh-release is pinned
+  # to a commit SHA on purpose (see release.yml); Dependabot proposes the new
+  # SHA with its version comment updated, which is the reviewable form.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: 'ci'
+
+  # Root dev tooling (esbuild, typescript, react for tests). `react` must stay
+  # on the major the DSH page provides at runtime (18): the published
+  # packages declare `peerDependencies.react: ^18.2.0`, so ignore majors here.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      tooling:
+        patterns:
+          - '*'
+    ignore:
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react'
+        update-types: ['version-update:semver-major']
+    commit-message:
+      prefix: 'build'

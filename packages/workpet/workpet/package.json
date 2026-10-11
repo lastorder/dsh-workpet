@@ -1,0 +1,74 @@
+{
+  "name": "dsh-workpet",
+  "version": "0.1.0",
+  "description": "Work pet capability for DeepSeek Harness: a floating pet whose actions mirror what the current Session is doing, with swappable appearances contributed by other plugins.",
+  "license": "MIT",
+  "type": "module",
+  "icon": "./icon.svg",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./contract": {
+      "types": "./lib/types/client/contract.d.ts"
+    },
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "locale/*.json",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "desktop-pet",
+    "workpet"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lastorder/dsh-workpet.git",
+    "directory": "packages/workpet/workpet"
+  },
+  "homepage": "https://github.com/lastorder/dsh-workpet/tree/main/packages/workpet/workpet#readme",
+  "bugs": {
+    "url": "https://github.com/lastorder/dsh-workpet/issues"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepublishOnly": "pnpm --dir ../../.. run verify && node ../../../scripts/release.mjs check"
+  }
+}

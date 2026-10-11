@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "dsh-workpet/contract": ["./packages/workpet/workpet/src/client/contract.ts"]
+    }
+  },
+  "include": ["packages/*/*/src/**/*", "packages/*/*/tests/**/*.ts"]
+}

@@ -1,0 +1,62 @@
+{
+  "name": "dsh-workpet-cat",
+  "version": "0.1.0",
+  "description": "Default appearance for the dsh-workpet capability: a cream-and-ginger kitten drawn in a soft, hand-painted picture-book style.",
+  "license": "MIT",
+  "type": "module",
+  "icon": "./icon.svg",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "locale/*.json",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "workpet",
+    "workpet-skin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lastorder/dsh-workpet.git",
+    "directory": "packages/workpet/workpet-cat"
+  },
+  "homepage": "https://github.com/lastorder/dsh-workpet/tree/main/packages/workpet/workpet-cat#readme",
+  "bugs": {
+    "url": "https://github.com/lastorder/dsh-workpet/issues"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "dsh-workpet"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepublishOnly": "pnpm --dir ../../.. run verify && node ../../../scripts/release.mjs check"
+  }
+}

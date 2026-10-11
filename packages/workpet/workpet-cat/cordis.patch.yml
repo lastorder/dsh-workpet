@@ -1,0 +1,6 @@
+# dsh-workpet-cat bundle layer: registers the default kitten appearance into
+# `ctx.workpet`. Needs the dsh-workpet bundle; without it the Client half
+# stays inactive.
+- insert:
+    - id: dsh-workpet-cat
+      name: dsh-workpet-cat

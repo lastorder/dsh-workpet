@@ -1,0 +1,51 @@
+name: CI
+
+# Runs the full self-verification flow (build, typecheck, tests over the built
+# bundles) on every push to the default branch and every pull request, so a
+# break is found at the commit that caused it rather than at release time.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# Read-only: nothing here publishes, tags, or writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The pure tests run as TypeScript through Node's built-in type
+        # stripping, so 22 (the lowest version `engines` allows), 24 (Active
+        # LTS, the primary target), and 26 (Current) are all exercised.
+        node-version: ['22', '24', '26']
+    name: verify (Node ${{ matrix.node-version }})
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify (build + typecheck + test)
+        run: pnpm run verify
+
+      - name: Check the published packages are releasable
+        run: pnpm run release:check

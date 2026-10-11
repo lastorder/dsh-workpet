@@ -1,0 +1,28 @@
+{
+  "name": "dsh-workpet-root",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test \"packages/*/*/tests/*.test.ts\" \"packages/*/*/tests/*.test.mjs\"",
+    "verify": "pnpm run build && pnpm run typecheck && pnpm run test",
+    "clean": "node scripts/clean.mjs",
+    "release:version": "node scripts/release.mjs version",
+    "release:check": "node scripts/release.mjs check"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/react": "~18.3.12",
+    "esbuild": "^0.28.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "typescript": "~5.9.3"
+  }
+}

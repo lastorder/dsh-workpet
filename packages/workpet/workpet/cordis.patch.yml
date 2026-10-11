@@ -1,0 +1,6 @@
+# dsh-workpet bundle layer: the capability (`ctx.workpet` skin registry, the
+# floating pet, and the appearance dropdown on this bundle's page).
+# Appearances are separate bundles: dsh-workpet-cat (default), and others.
+- insert:
+    - id: dsh-workpet
+      name: dsh-workpet

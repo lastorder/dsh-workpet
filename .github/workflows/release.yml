@@ -1,0 +1,98 @@
+name: Release
+
+# Triggered by pushing an annotated tag matching v*.*.*. Every published
+# package in this repository (see PUBLISHED in scripts/release.mjs) shares
+# one version and is released from that one tag: verify, stage each package
+# on npm, and create a matching GitHub Release marked as a pre-release until
+# a maintainer approves the npm stage.
+#
+# Each package's npm Trusted Publisher is configured stage-only (no "publish
+# directly" permission), so `npm publish` from this workflow is rejected —
+# only `npm stage publish` is accepted. A maintainer must approve every
+# staged version on npmjs.com (or with `npm stage approve`, 2FA) before it
+# becomes installable. Even a compromised workflow can only reach the stage
+# queue, never the registry, without a human's 2FA approval.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write # to create the GitHub Release and upload its tarball assets
+  id-token: write # to mint the OIDC token npm's Trusted Publishing exchanges for a stage credential
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify (build + typecheck + test)
+        run: pnpm run verify
+
+      - name: Check the tag matches every published package's version
+        # A mismatch means the tag was cut against the wrong commit or the
+        # versions were never bumped with `pnpm run release:version`; fail
+        # before anything is staged.
+        run: node scripts/release.mjs check "${GITHUB_REF_NAME#v}"
+
+      - name: Stage on npm
+        # No token: every published package has a Trusted Publisher
+        # (npmjs.com package Settings -> Trusted Publisher -> GitHub Actions
+        # -> lastorder/dsh-workpet + .github/workflows/release.yml),
+        # restricted to stage-only. npm CLI >= 11.15.0 exchanges this job's
+        # OIDC token for a short-lived, workflow-scoped stage credential.
+        # Each package's `prepublishOnly` re-runs `pnpm run verify` and the
+        # release check, so a broken tree never reaches the stage queue.
+        # Packages are staged in PUBLISHED order: the capability first.
+        run: |
+          npm install -g npm@latest
+          for dir in $(node scripts/release.mjs list); do
+            (cd "$dir" && npm stage publish)
+          done
+
+      - name: Pack tarballs for the GitHub Release
+        run: |
+          for dir in $(node scripts/release.mjs list); do
+            (cd "$dir" && npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE")
+          done
+
+      - name: Read the release notes from the tagged commit
+        # Release commits are written as standalone release notes
+        # ("Release vX.Y.Z: <summary>" plus a prose body); reuse that message.
+        id: release_notes
+        run: |
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            git log -1 --format=%B "$GITHUB_SHA"
+            echo ''
+            echo '---'
+            echo ''
+            echo '⚠️ Staged on npm, awaiting maintainer approval before it installs — see https://www.npmjs.com/package/dsh-workpet?activeTab=versions and https://www.npmjs.com/package/dsh-workpet-cat?activeTab=versions, or run `npm stage ls`.'
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create the GitHub Release (marked pre-release until npm approval)
+        # Pinned to a full commit SHA: this third-party action runs in a job
+        # holding `contents: write` and `id-token: write`, so a moved tag on
+        # its repository would be a direct path into this release pipeline.
+        # First-party actions/* and pnpm/* steps stay on major tags.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          body: ${{ steps.release_notes.outputs.body }}
+          files: '*.tgz'
+          prerelease: true
