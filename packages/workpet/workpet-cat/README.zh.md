@@ -6,7 +6,7 @@
 
 ## 概要
 
-`ctx.workpet` 的 Service Provider。Client 半侧声明 `inject = ['workpet', 'locale']`，在 `ctx.effect` 里注册形象 `cat`（`order: 0`）。它是独立的组合包（行 `dsh-workpet-cat`），需要 `dsh-workpet` 组合包；关闭后小猫会从下拉框消失。
+`ctx.workpet` 的 Service Provider。Client 半侧声明 `inject = ['workpet', 'locale']`，在 `ctx.effect` 里注册形象 `cat`（`order: 0`）。它本身不是组合包：`dsh-workpet` 组合包依赖它并插入 `dsh-workpet-cat` 这一行，所以会随宠物一起安装。在组合包页面关闭这一行，小猫就会从下拉框消失。
 
 ## 动作
 

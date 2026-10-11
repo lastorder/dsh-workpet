@@ -23,7 +23,7 @@ DeepSeek Harness 的悬浮**工作宠物**，用动作表现当前会话在做�
 | 包 | 角色 | 位置 |
 |---|---|---|
 | [`dsh-workpet`](packages/workpet/workpet/README.zh.md) | Service Definition（`ctx.workpet`）+ Consumer（悬浮宠物、形象下拉框）；组合包 | 本仓库 |
-| [`dsh-workpet-cat`](packages/workpet/workpet-cat/README.zh.md) | Service Provider：默认小猫；组合包 | 本仓库 |
+| [`dsh-workpet-cat`](packages/workpet/workpet-cat/README.zh.md) | Service Provider：默认小猫；随 `dsh-workpet` 一起安装 | 本仓库 |
 | [`dsh-workpet-parrot`](https://github.com/lastorder/dsh-workpet-parrot) | Service Provider：玄凤鹦鹉，纯 JavaScript、免编译；开发新宠物的模板 | 独立仓库 |
 
 角色、接口与状态规则见 [docs/architecture.zh.md](docs/architecture.zh.md)。
@@ -31,30 +31,31 @@ DeepSeek Harness 的悬浮**工作宠物**，用动作表现当前会话在做�
 <a id="install"></a>
 ## 安装
 
-发布后，这些包在 npm 上分别是 `dsh-workpet`、`dsh-workpet-cat` 和 `dsh-workpet-parrot`，先装能力包，用 `install_bundle`（`target` 为包名）或 `dsh plugin --profile <profile> add <包名>` 安装。从源码安装：
+安装 **`dsh-workpet`** 组合包时会一并装上默认小猫：`dsh-workpet-cat` 是 `dsh-workpet` 的依赖，组合包会插入它的那一行。其它形象（如 `dsh-workpet-parrot`）是独立的组合包。
+
+从 npm 安装：在 Harness 会话里让智能体执行 `plugin_manager` 的 `install_bundle`：
+
+```text
+install_bundle  dsh-workpet          # 宠物 + 默认小猫
+install_bundle  dsh-workpet-parrot   # 可选：玄凤鹦鹉
+```
+
+从源码安装：先构建，再安装目录：
 
 ```sh
 pnpm install
 pnpm run build
 ```
 
-然后把组合包装进 profile，先装能力包。在 Harness 会话里让智能体对每个绝对路径执行 `plugin_manager` 的 `install_bundle`：
-
 ```text
-install_bundle  /absolute/path/to/dsh-workpet/packages/workpet/workpet        # 能力（必装）
-install_bundle  /absolute/path/to/dsh-workpet/packages/workpet/workpet-cat    # 默认小猫
-install_bundle  /absolute/path/to/dsh-workpet-parrot                          # 可选：玄凤鹦鹉
+install_bundle  /absolute/path/to/dsh-workpet/packages/workpet/workpet   # 宠物 + 默认小猫
+install_bundle  /absolute/path/to/dsh-workpet-parrot                     # 可选：玄凤鹦鹉
 ```
 
-如果是 CLI 管理的 profile（桌面应用的 `desktop` profile 只能由应用自己修改），同样的三次安装是：
+如果是 CLI 管理的 profile（桌面应用的 `desktop` profile 只能由应用自己修改），用 `dsh plugin --profile <profile> add dsh-workpet`（或 `add link:/absolute/path/to/dsh-workpet/packages/workpet/workpet`），`dsh-workpet-parrot` 同理。
 
-```sh
-dsh plugin --profile <profile> add link:/absolute/path/to/dsh-workpet/packages/workpet/workpet
-dsh plugin --profile <profile> add link:/absolute/path/to/dsh-workpet/packages/workpet/workpet-cat
-dsh plugin --profile <profile> add link:/absolute/path/to/dsh-workpet-parrot
-```
+然后刷新 Harness 窗口。DeepSeek Harness 0.2.0 及更早版本**首次安装后需要重启一次应用**：这些版本只在启动时读取组合包的依赖，重启前小猫那一行会报 "failed to import"。更新的版本会立即生效。
 
-装完刷新 Harness 窗口。每个包都是独立组合包，因为 Loader 从 profile 解析行名，而 profile 里只有装进去的包。
 
 <a id="using-it"></a>
 ## 使用
@@ -86,7 +87,7 @@ dsh plugin --profile <profile> add link:/absolute/path/to/dsh-workpet-parrot
 
 1. 复制这个仓库，改掉包名、`cordis.patch.yml` 里的 Loader 行、`window.__ModuleLoader__.load` 里的 `id`、形象的 `id`，以及 CSS 前缀 `wpp-`。
 2. 替换 `client.js` 里的图像：调色板、身体部件、每个状态一个姿势，都是 100 × 80 画布里的 SVG 标记。它的 README 列出了所有状态、可复用的部件和动画规则。
-3. 和 `dsh-workpet` 一起用 `install_bundle` 安装，打开 **插件 → 工作宠物**，在**形象**下拉框里选中它，再切换**预览动作**逐个检查。
+3. 作为独立组合包，和 `dsh-workpet` 一起用 `install_bundle` 安装，打开 **插件 → 工作宠物**，在**形象**下拉框里选中它，再切换**预览动作**逐个检查。
 
 宠物要实现的接口（`WorkpetSkin`、`WorkpetScene`、`ctx.workpet`）见 [docs/architecture.zh.md](docs/architecture.zh.md#the-interface)。如果想用 TypeScript 编译的方式写，参考 [`dsh-workpet-cat`](packages/workpet/workpet-cat)。
 

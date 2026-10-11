@@ -53,7 +53,9 @@ flowchart LR
 | `dsh-workpet` | `dsh-workpet` | 空 `apply` | 提供 `ctx.workpet`；注册悬浮宠物、探针和配置页 |
 | `dsh-workpet-cat` | `dsh-workpet-cat` | 空 `apply` | `inject = ['workpet', 'locale']`；注册形象 `cat` |
 
-每个包都是独立的**组合包（bundle）**，`cordis.patch.yml` 只插入一行。Loader 从 profile 目录解析行名，而 profile 里只有装进去的包，所以组合包不能替它仅仅依赖的包插入行。先装 `dsh-workpet`，再装 `dsh-workpet-cat` 和其它形象。小猫之所以是默认形象，是因为它的 `order`（0）排在最前；关闭它的组合包后剩下其它形象。
+`dsh-workpet` 是**组合包（bundle）**：它的 `cordis.patch.yml` 插入两行，`package.json` 把 `dsh-workpet-cat` 声明为依赖。DeepSeek Harness 从 profile 以及每个已选组合包的依赖闭包（从组合包自己的目录解析）中解析行名，所以安装 `dsh-workpet` 后 `dsh-workpet-cat` 无需再装一次就能被解析。`dsh-workpet-cat` 本身不是组合包：两个组合包插入同一个行 id 会冲突。小猫之所以是默认形象，是因为它的 `order`（0）排在最前；在组合包页面关闭这一行后剩下其它形象。第三方形象是独立的组合包。
+
+DeepSeek Harness 0.2.0 只在启动时计算这张包表，所以首次安装后需要重启一次，小猫那一行才能解析；0.2.1 会在每次安装后刷新。
 
 两个 Host 半侧都是空的。只有当某个 Loader 行指名该包时，它的 Client 半侧才会被送到浏览器，所以每个包都保留一行。
 
@@ -147,7 +149,7 @@ interface WorkpetService {            // ctx.workpet
 <a id="writing-a-new-appearance"></a>
 ## 编写新形象
 
-一个提供方就是一个只有一行 Loader 行和一个 Client 半侧的组合包，有两种写法：
+第三方提供方是一个只有一行 Loader 行和一个 Client 半侧的组合包（默认小猫是例外：它随 `dsh-workpet` 组合包一起发布）。有两种写法：
 
 - **需要编译**（如 `dsh-workpet-cat`）：TypeScript/TSX 源码，从 `dsh-workpet/contract` 做 `import type`，由 `scripts/build.mjs` 构建。
 - **免编译**（如独立仓库 [`dsh-workpet-parrot`](https://github.com/lastorder/dsh-workpet-parrot)，推荐作为模板）：手写一个 `client.js`，自己调用 `window.__ModuleLoader__.load`，用 `React.createElement`，用 SVG 标记字符串画图。它的 README 是一份逐步的绘制指南。

@@ -29,6 +29,9 @@ importers:
 
   packages/workpet/workpet:
     dependencies:
+      dsh-workpet-cat:
+        specifier: workspace:^
+        version: link:../workpet-cat
       react:
         specifier: ^18.2.0
         version: 18.3.1

@@ -8,7 +8,7 @@ The work pet capability for DeepSeek Harness, and the bundle you install.
 
 - **Service Definition** — provides `ctx.workpet` (`WorkpetService`): register appearances (`WorkpetSkin`), store the user's selection, publish an immutable snapshot. Types are published as `dsh-workpet/contract`.
 - **Consumer** — a draggable pet in `shell.overlay` that mirrors the main-view Session; an invisible probe in `conversation.composer.dock` that reads live Chat activity; a section on this bundle's Plugin Manager page (`plugins.bundle.config`, key `dsh-workpet`) with the **Appearance** dropdown and a live preview.
-- **Bundle** — `cordis.patch.yml` inserts the row `dsh-workpet`. Appearances are separate bundles; install `dsh-workpet-cat` for the default kitten.
+- **Bundle** — `cordis.patch.yml` inserts the rows `dsh-workpet` and `dsh-workpet-cat`, and `dsh-workpet-cat` is a dependency, so installing this bundle brings the default kitten. On DeepSeek Harness 0.2.0, restart once after the first install so the kitten row resolves.
 
 ## Exports
 

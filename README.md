@@ -23,7 +23,7 @@ The pet is a **capability** with a defined interface, not a single drawing. `dsh
 | Package | Role | Where |
 |---|---|---|
 | [`dsh-workpet`](packages/workpet/workpet/README.md) | Service Definition (`ctx.workpet`) + Consumer (floating pet, appearance dropdown); bundle | this repository |
-| [`dsh-workpet-cat`](packages/workpet/workpet-cat/README.md) | Service Provider: the default kitten; bundle | this repository |
+| [`dsh-workpet-cat`](packages/workpet/workpet-cat/README.md) | Service Provider: the default kitten; installed with `dsh-workpet` | this repository |
 | [`dsh-workpet-parrot`](https://github.com/lastorder/dsh-workpet-parrot) | Service Provider: a cockatiel, written as plain JavaScript with no build step; the template for new pets | separate repository |
 
 See [docs/architecture.md](docs/architecture.md) for the roles, the interface, and the activity rules.
@@ -31,30 +31,31 @@ See [docs/architecture.md](docs/architecture.md) for the roles, the interface, a
 <a id="install"></a>
 ## Install
 
-Once published, the packages are on npm as `dsh-workpet`, `dsh-workpet-cat`, and `dsh-workpet-parrot`; install them with `install_bundle` (`target`: the package name) or `dsh plugin --profile <profile> add <name>`, capability first. To install from source:
+Installing the **`dsh-workpet`** bundle installs the default kitten with it: `dsh-workpet-cat` is a dependency of `dsh-workpet`, and the bundle inserts its row. Other appearances, such as `dsh-workpet-parrot`, are separate bundles.
+
+From npm, in a Harness session, ask the agent to run `plugin_manager` `install_bundle`:
+
+```text
+install_bundle  dsh-workpet          # the pet and the default kitten
+install_bundle  dsh-workpet-parrot   # optional cockatiel
+```
+
+From source, build first, then install the directories:
 
 ```sh
 pnpm install
 pnpm run build
 ```
 
-Then install the bundles into your profile, capability first. In a Harness session, ask the agent to run `plugin_manager` `install_bundle` with each absolute directory:
-
 ```text
-install_bundle  /absolute/path/to/dsh-workpet/packages/workpet/workpet        # capability (required)
-install_bundle  /absolute/path/to/dsh-workpet/packages/workpet/workpet-cat    # default kitten
-install_bundle  /absolute/path/to/dsh-workpet-parrot                          # optional cockatiel
+install_bundle  /absolute/path/to/dsh-workpet/packages/workpet/workpet   # the pet and the default kitten
+install_bundle  /absolute/path/to/dsh-workpet-parrot                     # optional cockatiel
 ```
 
-For a CLI-managed profile (not the Desktop app's `desktop` profile, which only the app may change), the same three installs are:
+For a CLI-managed profile (not the Desktop app's `desktop` profile, which only the app may change), use `dsh plugin --profile <profile> add dsh-workpet` (or `add link:/absolute/path/to/dsh-workpet/packages/workpet/workpet`), and the same for `dsh-workpet-parrot`.
 
-```sh
-dsh plugin --profile <profile> add link:/absolute/path/to/dsh-workpet/packages/workpet/workpet
-dsh plugin --profile <profile> add link:/absolute/path/to/dsh-workpet/packages/workpet/workpet-cat
-dsh plugin --profile <profile> add link:/absolute/path/to/dsh-workpet-parrot
-```
+Then refresh the Harness window. On DeepSeek Harness 0.2.0 and earlier, **restart the app once after the first install**: those versions read a bundle's dependencies only at start-up, so the kitten row reports "failed to import" until the restart. Later versions pick it up immediately.
 
-Refresh the Harness window afterwards. Each package is its own bundle because the Loader resolves row names from the profile, which holds only the packages installed into it.
 
 <a id="using-it"></a>
 ## Using it
@@ -86,7 +87,7 @@ Start from **[dsh-workpet-parrot](https://github.com/lastorder/dsh-workpet-parro
 
 1. Copy the repository and rename the package, the Loader row in `cordis.patch.yml`, the `id` in `window.__ModuleLoader__.load`, the skin `id`, and the `wpp-` CSS prefix.
 2. Replace the artwork in `client.js`: a palette, body parts, and one pose per activity, as SVG markup in a 100 × 80 box. Its README lists every activity, the building blocks, and the animation rules.
-3. Install it next to `dsh-workpet` with `install_bundle`, open **Plugins → Work Pet**, choose it in the **Appearance** dropdown, and step through **Preview activity**.
+3. Install it as its own bundle next to `dsh-workpet` with `install_bundle`, open **Plugins → Work Pet**, choose it in the **Appearance** dropdown, and step through **Preview activity**.
 
 The interface the pet implements (`WorkpetSkin`, `WorkpetScene`, `ctx.workpet`) is described in [docs/architecture.md](docs/architecture.md#the-interface). A compiled TypeScript appearance follows [`dsh-workpet-cat`](packages/workpet/workpet-cat) instead.
 

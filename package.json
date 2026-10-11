@@ -11,7 +11,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "node --test \"packages/*/*/tests/*.test.ts\" \"packages/*/*/tests/*.test.mjs\"",
+    "test": "node --test \"packages/*/*/tests/*.test.ts\" \"packages/*/*/tests/*.test.mjs\" \"scripts/*.test.mjs\"",
     "verify": "pnpm run build && pnpm run typecheck && pnpm run test",
     "clean": "node scripts/clean.mjs",
     "release:version": "node scripts/release.mjs version",

@@ -49,6 +49,9 @@
   "bugs": {
     "url": "https://github.com/lastorder/dsh-workpet/issues"
   },
+  "dependencies": {
+    "dsh-workpet-cat": "workspace:^"
+  },
   "peerDependencies": {
     "react": "^18.2.0"
   },
@@ -69,6 +72,6 @@
     "node": ">=22"
   },
   "scripts": {
-    "prepublishOnly": "pnpm --dir ../../.. run verify && node ../../../scripts/release.mjs check"
+    "prepublishOnly": "node ../../../scripts/release.mjs check --packed"
   }
 }

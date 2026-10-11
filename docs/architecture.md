@@ -53,7 +53,9 @@ Packages live at `packages/<group>/<package>/`; the `workpet` group holds this c
 | `dsh-workpet` | `dsh-workpet` | no-op `apply` | provides `ctx.workpet`; registers the overlay, the probe, and the configuration page |
 | `dsh-workpet-cat` | `dsh-workpet-cat` | no-op `apply` | `inject = ['workpet', 'locale']`; registers skin `cat` |
 
-Every package is its own **bundle** with a one-row `cordis.patch.yml`. The Loader resolves row names from the profile directory, which holds only packages installed into the profile, so a bundle cannot ship a row for a package it merely depends on. Install `dsh-workpet` first, then `dsh-workpet-cat` and any other appearance. The kitten is the default because its `order` (0) sorts first; switching its bundle off leaves the other appearances.
+`dsh-workpet` is the **bundle**: its `cordis.patch.yml` inserts both rows, and its `package.json` declares `dsh-workpet-cat` as a dependency. DeepSeek Harness resolves row names from the profile plus the dependency closure of every selected bundle, resolved from each bundle's own directory, so installing `dsh-workpet` makes `dsh-workpet-cat` resolvable without a second install. `dsh-workpet-cat` is not a bundle itself: two bundles inserting the same row id would conflict. The kitten is the default because its `order` (0) sorts first; switching its row off on the bundle page leaves the other appearances. Third-party appearances are separate bundles.
+
+DeepSeek Harness 0.2.0 computes that package table only at start-up, so the kitten row resolves after one restart following the first install; 0.2.1 refreshes it after every install.
 
 Both Host halves are empty. A Client half reaches the browser only when a Loader row names its package, so each package keeps a row.
 
@@ -147,7 +149,7 @@ The selection is a Client preference stored in `localStorage` under `dsh-workpet
 <a id="writing-a-new-appearance"></a>
 ## Writing a new appearance
 
-A provider is a bundle with one Loader row and a Client half. It can take either form:
+A third-party provider is a bundle with one Loader row and a Client half (the default kitten is the exception: it ships inside the `dsh-workpet` bundle). It can take either form:
 
 - **Compiled** (like `dsh-workpet-cat`): TypeScript/TSX sources, `import type` from `dsh-workpet/contract`, built by `scripts/build.mjs`.
 - **No build** (like [`dsh-workpet-parrot`](https://github.com/lastorder/dsh-workpet-parrot), a separate repository and the recommended template): one hand-written `client.js` that calls `window.__ModuleLoader__.load` itself, uses `React.createElement`, and draws with SVG markup strings. Its README is a step-by-step guide to drawing a skin.

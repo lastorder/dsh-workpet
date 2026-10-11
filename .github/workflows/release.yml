@@ -50,15 +50,22 @@ jobs:
         # before anything is staged.
         run: node scripts/release.mjs check "${GITHUB_REF_NAME#v}"
 
+      - name: Pin workspace dependency ranges
+        # dsh-workpet depends on dsh-workpet-cat as `workspace:^` in the
+        # repository; npm cannot install that range, so rewrite it to the real
+        # version in this checkout only (never committed). Each package's
+        # prepublishOnly (`release.mjs check --packed`) refuses to publish a
+        # manifest that still has a workspace: range.
+        run: node scripts/release.mjs pin
+
       - name: Stage on npm
         # No token: every published package has a Trusted Publisher
         # (npmjs.com package Settings -> Trusted Publisher -> GitHub Actions
         # -> lastorder/dsh-workpet + .github/workflows/release.yml),
         # restricted to stage-only. npm CLI >= 11.15.0 exchanges this job's
         # OIDC token for a short-lived, workflow-scoped stage credential.
-        # Each package's `prepublishOnly` re-runs `pnpm run verify` and the
-        # release check, so a broken tree never reaches the stage queue.
-        # Packages are staged in PUBLISHED order: the capability first.
+        # Packages are staged in PUBLISHED order: a dependency (the default
+        # kitten) before the package that depends on it (the capability).
         run: |
           npm install -g npm@latest
           for dir in $(node scripts/release.mjs list); do
@@ -82,7 +89,7 @@ jobs:
             echo ''
             echo '---'
             echo ''
-            echo '⚠️ Staged on npm, awaiting maintainer approval before it installs — see https://www.npmjs.com/package/dsh-workpet?activeTab=versions and https://www.npmjs.com/package/dsh-workpet-cat?activeTab=versions, or run `npm stage ls`.'
+            echo '⚠️ Staged on npm, awaiting maintainer approval before it installs — approve https://www.npmjs.com/package/dsh-workpet-cat?activeTab=versions first, then https://www.npmjs.com/package/dsh-workpet?activeTab=versions (or run `npm stage ls`).'
             echo 'RELEASE_NOTES_EOF'
           } >> "$GITHUB_OUTPUT"
 

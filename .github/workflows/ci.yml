@@ -48,4 +48,6 @@ jobs:
         run: pnpm run verify
 
       - name: Check the published packages are releasable
-        run: pnpm run release:check
+        run: |
+          pnpm run release:check
+          node scripts/release.mjs pin --dry-run

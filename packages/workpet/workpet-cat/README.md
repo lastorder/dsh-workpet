@@ -6,7 +6,7 @@ The default appearance of the work pet: a cream-and-ginger kitten with a red nec
 
 ## Summary
 
-A Service Provider for `ctx.workpet`. Its Client half declares `inject = ['workpet', 'locale']` and registers skin `cat` (`order: 0`) inside `ctx.effect`. It is its own bundle (row `dsh-workpet-cat`) and needs the `dsh-workpet` bundle; switching it off removes the kitten from the dropdown.
+A Service Provider for `ctx.workpet`. Its Client half declares `inject = ['workpet', 'locale']` and registers skin `cat` (`order: 0`) inside `ctx.effect`. It is not a bundle of its own: the `dsh-workpet` bundle depends on it and inserts its row `dsh-workpet-cat`, so it is installed with the pet. Switching that row off on the bundle page removes the kitten from the dropdown.
 
 ## Poses
 

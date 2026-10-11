@@ -8,7 +8,7 @@ DeepSeek Harness 的工作宠物能力，也是需要安装的组合包。
 
 - **Service Definition** —— 提供 `ctx.workpet`（`WorkpetService`）：注册形象（`WorkpetSkin`）、保存用户选择、发布不可变快照。类型以 `dsh-workpet/contract` 发布。
 - **Consumer** —— `shell.overlay` 里可拖拽的宠物，反映主视图会话；`conversation.composer.dock` 里不可见的探针，读取实时 Chat 活动；本组合包在插件管理页上的一块区域（`plugins.bundle.config`，key 为 `dsh-workpet`），包含**形象**下拉框和实时预览。
-- **组合包** —— `cordis.patch.yml` 插入 `dsh-workpet` 一行。形象是独立的组合包；安装 `dsh-workpet-cat` 获得默认小猫。
+- **组合包** —— `cordis.patch.yml` 插入 `dsh-workpet` 和 `dsh-workpet-cat` 两行，且 `dsh-workpet-cat` 是依赖，所以安装本组合包就会带上默认小猫。DeepSeek Harness 0.2.0 首次安装后需重启一次，小猫那一行才能解析。
 
 ## 导出
 
