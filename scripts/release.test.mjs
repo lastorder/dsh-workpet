@@ -54,6 +54,15 @@ describe('npm READMEs', () => {
     assert.deepEqual(relativeLinks(markdown), ['README.zh.md', 'docs/architecture.md#the-interface', '../x.md'])
   })
 
+  it('points images at the raw files and links at the GitHub pages', () => {
+    const raw = 'https://raw.githubusercontent.com/lastorder/dsh-workpet/v1.2.3/'
+    const markdown = '![pets](docs/images/a.png) [doc](docs/a.md) <img src="docs/images/b.png" width="400" alt="b"> <img src="https://x.y/c.png">'
+    const rewritten = absolutizeLinks(markdown, base, raw)
+    assert.equal(rewritten, `![pets](${raw}docs/images/a.png) [doc](${base}docs/a.md) <img src="${raw}docs/images/b.png" width="400" alt="b"> <img src="https://x.y/c.png">`)
+    assert.deepEqual(relativeLinks(markdown), ['docs/images/a.png', 'docs/a.md', 'docs/images/b.png'])
+    assert.deepEqual(relativeLinks(rewritten), [])
+  })
+
   it('gives dsh-workpet the repository root README, with links resolved from the root', () => {
     assert.ok(README_FROM_ROOT.has('packages/workpet/workpet'))
     const files = [...npmReadmes('packages/workpet/workpet', 'v1.2.3')]

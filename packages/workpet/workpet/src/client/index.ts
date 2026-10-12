@@ -1,8 +1,8 @@
 /**
  * Client half of `dsh-workpet`: provides the `ctx.workpet` Service Definition
- * (the skin registry) and its Consumer UI — the floating pet, the Chat probe
- * that feeds it, and the bundle configuration page with the appearance
- * dropdown.
+ * (the skin registry) and its Consumer UI — one floating pet per registered
+ * skin, the Chat probe that feeds them, and the bundle configuration page
+ * with the appearance cards and the action preview.
  *
  * @module dsh-workpet/client
  */
@@ -12,7 +12,7 @@ import { createConfigPage } from './config-page.tsx'
 import { en, NS, zh, type Translate } from './locale.ts'
 import { createOverlay } from './overlay.tsx'
 import { createProbe } from './probe.tsx'
-import { localSelectionStore, WorkpetRegistry } from './registry.ts'
+import { WorkpetRegistry } from './registry.ts'
 import { ChatSignalTable } from './signals.ts'
 import { CSS, STYLE_ID } from './styles.ts'
 
@@ -20,8 +20,6 @@ export type * from './contract.ts'
 
 /** npm package name; keys the `plugins.bundle.config` page and the module table entry. */
 export const PACKAGE_NAME = 'dsh-workpet'
-/** `localStorage` key of the user's skin selection. */
-export const SELECTION_KEY = 'dsh-workpet:skin'
 
 interface SlotRegistration { readonly name: string; readonly id?: string; readonly key?: string; readonly order?: number; readonly locale?: string; readonly label?: () => string }
 
@@ -53,24 +51,14 @@ function insertStyles(): () => void {
   return () => { tag.remove() }
 }
 
-function followOtherTabs(registry: WorkpetRegistry): () => void {
-  if (typeof window === 'undefined') return () => {}
-  const onStorage = (event: StorageEvent): void => {
-    if (event.key === SELECTION_KEY) registry.adopt(event.newValue ?? undefined)
-  }
-  window.addEventListener('storage', onStorage)
-  return () => window.removeEventListener('storage', onStorage)
-}
-
 /**
  * Plugin body.
  * @param ctx - Client root context.
  */
 export function apply(ctx: WorkpetHostContext): void {
-  const registry = new WorkpetRegistry(localSelectionStore(SELECTION_KEY))
+  const registry = new WorkpetRegistry()
   const signals = new ChatSignalTable()
   ctx.provide('workpet', registry)
-  ctx.effect(() => followOtherTabs(registry), 'workpet: cross-tab selection')
   ctx.effect(insertStyles, 'workpet: stylesheet')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'workpet: dictionaries')
   const t = ctx.locale.bind(NS)

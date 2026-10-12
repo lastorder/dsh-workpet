@@ -5,18 +5,8 @@
  * page preview.
  */
 import { Component, type ReactNode } from 'react'
-import type { WorkpetScene, WorkpetSkin, WorkpetToolCategory } from './contract.ts'
-
-const TOOL_GLYPH: Record<WorkpetToolCategory, string> = {
-  shell: '💻',
-  search: '🔍',
-  edit: '✏️',
-  web: '🌐',
-  delegate: '🤝',
-  plan: '📋',
-  ask: '❓',
-  other: '🔧',
-}
+import type { WorkpetScene, WorkpetSkin } from './contract.ts'
+import { TOOL_GLYPH } from './scene.ts'
 
 const COMPANION_SCENE: WorkpetScene = { activity: 'tool', tool: { name: 'subagent', category: 'delegate' }, helpers: 0 }
 

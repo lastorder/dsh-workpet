@@ -1,6 +1,6 @@
 {
   "name": "dsh-workpet-cat",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Default appearance for the dsh-workpet capability: a cream-and-ginger kitten drawn in a soft, hand-painted picture-book style.",
   "license": "MIT",
   "type": "module",

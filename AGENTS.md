@@ -13,8 +13,9 @@ packages/<group>/<package>/   one npm package each
   LICENSE                     copy of the root LICENSE (npm only packs files inside the package)
 scripts/build.mjs             shared build for every package
 scripts/release.mjs           published-package list, version bump, release check, npm preparation (ranges, READMEs)
+scripts/screenshots.mjs       renders the README screenshots into docs/images/ (headless Chrome)
 scripts/testing/              harness that loads built Client halves
-docs/                         architecture (English + 中文)
+docs/                         architecture (English + 中文); images/ holds the README screenshots
 .github/workflows/            ci.yml (verify on push/PR), release.yml (tag → npm stage + GitHub Release)
 ```
 
@@ -31,6 +32,7 @@ pnpm run verify         # build + typecheck + test
 pnpm run release:check  # every published package has the root version and its build output
 node scripts/release.mjs prepare --dry-run   # show the npm preparation: pinned ranges and the READMEs npm will show
 pnpm run release:version <x.y.z>
+node scripts/screenshots.mjs --parrot ../dsh-workpet-parrot   # after pnpm run build: re-render docs/images/ (needs Google Chrome)
 pnpm run release:publish   # one-time manual first publish only; releases go through release.yml
 ```
 
@@ -53,7 +55,7 @@ Published packages are listed in `PUBLISHED` in [scripts/release.mjs](scripts/re
 `node scripts/release.mjs prepare` makes the checkout npm-ready before publishing; release.yml runs it, and `pnpm run release:publish` runs it and restores the changed files afterwards. Never commit its output.
 
 - **Dependency ranges.** In the repository, `dsh-workpet` depends on `dsh-workpet-cat` as `workspace:^`, which npm cannot install; `prepare` rewrites it to `^X.Y.Z`.
-- **npm READMEs.** npm shows the `README.md` inside the package. `dsh-workpet` (listed in `README_FROM_ROOT`) gets the repository's root `README.md`/`README.zh.md`, because its npm page is the project's front page; `dsh-workpet-cat` keeps its own. Every relative link becomes a GitHub URL pinned to the release tag (`main` outside CI), because relative links break on npmjs.com. The in-repo `packages/workpet/workpet/README*.md` stay package-level docs for GitHub browsing. `homepage` in `dsh-workpet`'s `package.json` points at the repository root to match.
+- **npm READMEs.** npm shows the `README.md` inside the package. `dsh-workpet` (listed in `README_FROM_ROOT`) gets the repository's root `README.md`/`README.zh.md`, because its npm page is the project's front page; `dsh-workpet-cat` keeps its own. Every relative link becomes a GitHub URL pinned to the release tag (`main` outside CI), because relative links break on npmjs.com; every relative image (`![alt](…)` or `<img src="…">`) becomes a `raw.githubusercontent.com` URL at the same tag, so the screenshots in `docs/images/` show on npm without being packed. Do not nest an image inside a link. The in-repo `packages/workpet/workpet/README*.md` stay package-level docs for GitHub browsing. `homepage` in `dsh-workpet`'s `package.json` points at the repository root to match.
 
 Each package's `prepublishOnly` (`release.mjs check --packed`) refuses to publish while a `workspace:` range or a relative README link remains, or while `dsh-workpet`'s README is not the root one, so a bare `npm publish` in a package directory fails instead of shipping a broken package.
 

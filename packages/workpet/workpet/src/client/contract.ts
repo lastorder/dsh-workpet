@@ -8,9 +8,11 @@
  *   the `dsh-workpet` Client half.
  * - Service Provider — a skin package that calls
  *   {@link WorkpetService.register} with a {@link WorkpetSkin}.
- * - Consumer — the floating pet in `shell.overlay` (also in `dsh-workpet`),
- *   which derives one {@link WorkpetScene} per render and hands it to the
- *   selected skin's {@link WorkpetSkin.Figure}.
+ * - Consumer — the floating pets in `shell.overlay` (also in `dsh-workpet`):
+ *   one pet per registered skin, all acting out the same
+ *   {@link WorkpetScene}, each drawn by its skin's {@link WorkpetSkin.Figure}.
+ *   A skin is on screen exactly while its plugin is enabled; there is no
+ *   separate selection.
  *
  * @module dsh-workpet/contract
  */
@@ -93,13 +95,14 @@ export interface WorkpetFigureProps {
 /** A pet appearance contributed by a Service Provider. */
 export interface WorkpetSkin {
   /**
-   * Stable, globally unique id (`[a-z0-9-]+`). The user's selection is
-   * stored by this id, so renaming it resets that selection.
+   * Stable, globally unique id (`[a-z0-9-]+`). The pet's screen position is
+   * stored by this id, so renaming it resets that position.
    */
   readonly id: string
   /**
-   * Position in the selection list, ascending; ties sort by id. When the
-   * stored selection is not registered, the first skin in this order is used.
+   * Arrangement, ascending; ties sort by id. The first pet stands in the
+   * default corner and the next ones line up to its left; the configuration
+   * page lists the skins in the same order.
    */
   readonly order?: number
   /** Localized display name, read at render time. */
@@ -112,12 +115,8 @@ export interface WorkpetSkin {
 
 /** Immutable registry state; the object identity changes on every change. */
 export interface WorkpetSnapshot {
-  /** Registered skins in selection order. */
+  /** Registered skins in {@link WorkpetSkin.order}; each one is a pet on screen. */
   readonly skins: readonly WorkpetSkin[]
-  /** The stored selection, which may name a skin that is not registered. */
-  readonly selectedId: string | undefined
-  /** The skin to draw: the selected one when registered, else `skins[0]`. */
-  readonly current: WorkpetSkin | undefined
 }
 
 /** The `ctx.workpet` Service Definition. */
@@ -131,16 +130,10 @@ export interface WorkpetService {
    * @throws when the id is malformed or already registered.
    */
   register(skin: WorkpetSkin): () => void
-  /**
-   * Store the user's selection. Selecting an unregistered id is allowed: it
-   * takes effect once a skin with that id registers.
-   * @param id - skin id.
-   */
-  select(id: string): void
   /** @returns the current immutable snapshot. */
   getSnapshot(): WorkpetSnapshot
   /**
-   * @param listener - called after every registration, removal, or selection change.
+   * @param listener - called after every registration or removal.
    * @returns unsubscriber.
    */
   subscribe(listener: () => void): () => void

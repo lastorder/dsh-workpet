@@ -6,9 +6,11 @@
 
 ## 概要
 
-`ctx.workpet` 的 Service Provider。Client 半侧声明 `inject = ['workpet', 'locale']`，在 `ctx.effect` 里注册形象 `cat`（`order: 0`）。它本身不是组合包：`dsh-workpet` 组合包依赖它并插入 `dsh-workpet-cat` 这一行，所以会随宠物一起安装。在组合包页面关闭这一行，小猫就会从下拉框消失。
+`ctx.workpet` 的 Service Provider。Client 半侧声明 `inject = ['workpet', 'locale']`，在 `ctx.effect` 里注册形象 `cat`（`order: 0`）。它本身不是组合包：`dsh-workpet` 组合包依赖它并插入 `dsh-workpet-cat` 这一行，所以会随宠物一起安装。在组合包页面关闭这一行，小猫就会从屏幕和形象卡片里消失。
 
 ## 动作
+
+<p align="center"><img src="../../../docs/images/kitten-poses.png" width="800" alt="小猫的全部 13 个动作"></p>
 
 | 状态 | 动作 |
 |---|---|

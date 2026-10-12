@@ -11,7 +11,7 @@ dsh-workpet turns "a pet that shows what the Session is doing" into a **capabili
 - [The interface](#the-interface)
 - [Data flow](#data-flow)
 - [Activity precedence](#activity-precedence)
-- [Selection and the configuration page](#selection-and-the-configuration-page)
+- [Pets on screen and the configuration page](#pets-on-screen-and-the-configuration-page)
 - [Writing a new appearance](#writing-a-new-appearance)
 - [Limitations](#limitations)
 
@@ -22,24 +22,24 @@ dsh-workpet turns "a pet that shows what the Session is doing" into a **capabili
 
 | Role | What it owns | Package |
 |---|---|---|
-| **Service Definition** | `ctx.workpet` (`WorkpetService`): the skin registry, the user's selection, and the vocabulary types (`WorkpetScene`, `WorkpetSkin`, …) | `dsh-workpet` |
+| **Service Definition** | `ctx.workpet` (`WorkpetService`): the skin registry and the vocabulary types (`WorkpetScene`, `WorkpetSkin`, …) | `dsh-workpet` |
 | **Service Provider** | One appearance: a `WorkpetSkin` whose `Figure` draws the creature for any scene | `dsh-workpet-cat` (default), `dsh-workpet-parrot` (separate repository), any third party |
-| **Consumer** | Reads the main-view Session, derives one `WorkpetScene` per render, and draws the selected skin: the floating pet, its Chat probe, and the appearance dropdown | `dsh-workpet` |
+| **Consumer** | Reads the main-view Session, derives one `WorkpetScene` per render, and draws one pet per registered skin; also the Chat probe that feeds them and the configuration page (appearance cards, action preview) | `dsh-workpet` |
 
-The Definition and the Consumer share one package because they are one concern: the registry exists to feed the floating pet, and the dropdown edits the registry's selection. Providers depend on the Definition only through types; at runtime they receive `ctx.workpet` by dependency injection and never import its code.
+The Definition and the Consumer share one package because they are one concern: the registry exists to feed the floating pets and the configuration page. There is no selection: a skin is on screen exactly while its plugin is enabled, so the Plugin Manager's switches are the only control. Providers depend on the Definition only through types; at runtime they receive `ctx.workpet` by dependency injection and never import its code.
 
 ```mermaid
 flowchart LR
   subgraph def["dsh-workpet (Definition + Consumer)"]
     R["ctx.workpet<br/>WorkpetRegistry"]
-    O["shell.overlay<br/>floating pet"]
+    O["shell.overlay<br/>one pet per skin"]
     PR["conversation.composer.dock<br/>Chat probe"]
-    CP["plugins.bundle.config<br/>appearance dropdown"]
+    CP["plugins.bundle.config<br/>appearance cards + action preview"]
   end
   CAT["dsh-workpet-cat<br/>(default skin)"] -- "register(skin)" --> R
   PAR["dsh-workpet-parrot<br/>(another bundle)"] -- "register(skin)" --> R
-  R -- "current skin" --> O
-  R -- "skins + select(id)" --> CP
+  R -- "skins" --> O
+  R -- "skins" --> CP
   PR -- "ChatSignal" --> O
 ```
 
@@ -53,7 +53,7 @@ Packages live at `packages/<group>/<package>/`; the `workpet` group holds this c
 | `dsh-workpet` | `dsh-workpet` | no-op `apply` | provides `ctx.workpet`; registers the overlay, the probe, and the configuration page |
 | `dsh-workpet-cat` | `dsh-workpet-cat` | no-op `apply` | `inject = ['workpet', 'locale']`; registers skin `cat` |
 
-`dsh-workpet` is the **bundle**: its `cordis.patch.yml` inserts both rows, and its `package.json` declares `dsh-workpet-cat` as a dependency. DeepSeek Harness resolves row names from the profile plus the dependency closure of every selected bundle, resolved from each bundle's own directory, so installing `dsh-workpet` makes `dsh-workpet-cat` resolvable without a second install. `dsh-workpet-cat` is not a bundle itself: two bundles inserting the same row id would conflict. The kitten is the default because its `order` (0) sorts first; switching its row off on the bundle page leaves the other appearances. Third-party appearances are separate bundles.
+`dsh-workpet` is the **bundle**: its `cordis.patch.yml` inserts both rows, and its `package.json` declares `dsh-workpet-cat` as a dependency. DeepSeek Harness resolves row names from the profile plus the dependency closure of every selected bundle, resolved from each bundle's own directory, so installing `dsh-workpet` makes `dsh-workpet-cat` resolvable without a second install. `dsh-workpet-cat` is not a bundle itself: two bundles inserting the same row id would conflict. The kitten stands in the default corner because its `order` (0) sorts first; switching its row off on the bundle page removes it and leaves the other appearances. Third-party appearances are separate bundles.
 
 DeepSeek Harness 0.2.0 computes that package table only at start-up, so the kitten row resolves after one restart following the first install; 0.2.1 refreshes it after every install.
 
@@ -82,8 +82,8 @@ interface WorkpetScene {
 }
 
 interface WorkpetSkin {
-  readonly id: string        // stable, [a-z0-9-]+; the selection is stored by id
-  readonly order?: number    // dropdown order; the first skin is the fallback
+  readonly id: string        // stable, [a-z0-9-]+; the pet's screen position is stored by id
+  readonly order?: number    // arrangement: on screen from the corner leftwards, and on the page
   title(): string            // localized, read at render time
   description?(): string
   readonly Figure: ComponentType<{ scene: WorkpetScene; compact?: boolean }>
@@ -91,9 +91,8 @@ interface WorkpetSkin {
 
 interface WorkpetService {            // ctx.workpet
   readonly stage: { width: 100; height: 80 }
-  register(skin: WorkpetSkin): () => void
-  select(id: string): void
-  getSnapshot(): { skins; selectedId; current }
+  register(skin: WorkpetSkin): () => void   // the pet appears; the disposer removes it
+  getSnapshot(): { skins }                  // every registered skin, in order
   subscribe(listener: () => void): () => void
 }
 ```
@@ -101,7 +100,7 @@ interface WorkpetService {            // ctx.workpet
 Responsibilities are split so every appearance gets the same behavior:
 
 - A **Figure** draws only the creature, into `viewBox="0 0 100 80"`, for every activity. It may simplify itself when `compact` is set (helper companions, previews).
-- The **Consumer** owns position, dragging, petting, the status bubble, the tool badge (💻 🔍 ✏️ 🌐 🤝 📋 ❓ 🔧), helper companions (up to two small copies of the same Figure), and effects: hearts, sparkles, `z`, `!`, `?`, `…`, `↻`.
+- The **Consumer** owns each pet's position, dragging, petting, the status bubble, the tool badge (💻 🔍 ✏️ 🌐 🤝 📋 ❓ 🔧), helper companions (up to two small copies of the same Figure), and effects: hearts, sparkles, `z`, `!`, `?`, `…`, `↻`.
 - A Figure that throws is contained by an error boundary; the slot and the rest of the page keep working.
 
 <a id="data-flow"></a>
@@ -109,7 +108,7 @@ Responsibilities are split so every appearance gets the same behavior:
 
 1. **Probe** (`conversation.composer.dock`, Session scope, renders nothing). Reads the Session's Chat target through the standard `useChat` hook — `legacy.runningCalls`, `legacy.partial`, `legacy.nodes` — and publishes a `ChatSignal`: the live activity (tool, retrying, writing, thinking) and whether the newest settled node is a turn error.
 2. **Overlay** (`shell.overlay`, root scope). Reads the standard `useSessions`, `useSessionStatus`, and `usePanelInfo` hooks: the main-view Session is the one whose `retainedBy.mainView` count is positive; `running` and `pendingInteraction` come from its status; helpers are the running entries of its `subagentCatalog` projection. It joins these facts with the probe's signal and local interaction state and calls `deriveScene`.
-3. **Skin**. The overlay renders `snapshot.current.Figure` with the scene.
+3. **Skins**. The overlay renders one pet per entry of `snapshot.skins`. The pets share the Session facts (running, waiting, the turn-end celebration, dozing off); each pet adds its own dragging and petting, so dragging the kitten makes only the kitten dangle.
 
 The plugin adds no Host service, no network request, and no session event; it reads the same Client state the conversation view renders.
 
@@ -134,17 +133,19 @@ The plugin adds no Host service, no network request, and no session event; it re
 | 12 | Idle for 70 s | `sleeping` |
 | 13 | Otherwise | `idle` |
 
-The status bubble shows on hover and stays visible for `awaiting`, `done`, and `error`.
+The status bubble shows on hover. For `awaiting`, `done`, and `error` it stays visible under every pet, so each pet says it wherever it stands; default slots are far enough apart that the bubbles do not overlap.
 
-<a id="selection-and-the-configuration-page"></a>
-## Selection and the configuration page
+<a id="pets-on-screen-and-the-configuration-page"></a>
+## Pets on screen and the configuration page
+
+Every registered skin is a pet on screen. Installing or enabling an appearance plugin adds a pet without any setting; switching it off removes the pet at once, because the registration lives in the provider's `ctx.effect`. The default kitten is the `dsh-workpet-cat` row on the **Work Pet** bundle page; other appearances are bundles of their own.
+
+Each pet keeps its own position in `localStorage` under `dsh-workpet:position:<skin id>`, clamped to the window. A pet that was never moved takes a default slot: the first one in `order` stands in the bottom-right corner, the next ones line up 150 px apart to its left. The first pet also reads `dsh-workpet:position`, the single key earlier versions used, so an existing kitten stays where it was.
 
 The bundle page in **Plugins → Work Pet** carries a section contributed through the `plugins.bundle.config` slot, keyed by the package name `dsh-workpet`:
 
-- an **Appearance** dropdown listing every registered skin, in `order`; choosing one calls `ctx.workpet.select(id)` and the overlay switches immediately;
-- a **Preview activity** dropdown and a live preview stage that draws the selected skin in any activity.
-
-The selection is a Client preference stored in `localStorage` under `dsh-workpet:skin` and followed across tabs through the `storage` event. When the stored id is not registered (its bundle is off or uninstalled), the first skin is drawn and the page says so; the stored id is kept, so the choice returns when the bundle does.
+- **appearance cards**, one per registered skin in `order`, each a small stage with the skin's name, description, and a status bubble, followed by a card that explains how to add more pets and links to the dsh-workpet-parrot repository (or, with no skin, how to bring the kitten back); a **GitHub** link next to the title opens this repository;
+- an **action preview**: every activity as a button, grouped into everyday, working, needs you, turn ends, and interaction. Pressing one highlights it and makes every card act it out; the tool button adds a row of tool families that switches the badge. The catalogue is `src/client/preview.ts`.
 
 <a id="writing-a-new-appearance"></a>
 ## Writing a new appearance
@@ -182,5 +183,5 @@ Either way:
 - The pet mirrors only the main-view Session.
 - Tool categories come from tool-name patterns, not from tool metadata.
 - `legacy` is the Chat target's compatibility slice; if a future Harness drops it, the probe reports nothing and a running Session shows `thinking` until the probe is updated.
-- The selection lives in the browser's `localStorage`, so each browser profile (and a Desktop window served from a different origin) keeps its own choice.
+- Positions live in the browser's `localStorage`, so each browser profile (and a Desktop window served from a different origin) keeps its own.
 - Timings (petting, celebration, sleep) are constants in `overlay.tsx`; the Host half has no configuration channel to the browser.

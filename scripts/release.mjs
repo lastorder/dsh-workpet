@@ -12,7 +12,8 @@
  *                                              make the published packages npm-ready in the checkout:
  *                                              replace `workspace:` ranges with real ranges, and write the
  *                                              npm READMEs (README_FROM_ROOT packages get the repository's
- *                                              root README; relative links become GitHub URLs). release.yml
+ *                                              root README; relative links become GitHub URLs, images raw
+ *                                              file URLs). release.yml
  *                                              runs this before staging; `pin` is an alias.
  *   node scripts/release.mjs list              print the published package directories, one per line
  *   node scripts/release.mjs publish [args]    verify, prepare, run `npm publish [args]` in every published
@@ -38,9 +39,14 @@ export const README_FROM_ROOT = new Set(['packages/workpet/workpet'])
 
 /** GitHub web URL of this repository, used to make README links work on npmjs.com. */
 export const REPOSITORY_URL = 'https://github.com/lastorder/dsh-workpet'
+/** Raw-file URL of this repository: README images must point at the file itself, not its GitHub page. */
+export const RAW_URL = 'https://raw.githubusercontent.com/lastorder/dsh-workpet'
 
 const README_FILES = ['README.md', 'README.zh.md']
-const RELATIVE_LINK = /\]\((?!https?:|#|mailto:)([^)\s]+)\)/g
+/** `[text](target)` or `![alt](target)` with a relative target. Do not nest an image inside a link. */
+const RELATIVE_LINK = /(!?)\[([^\]]*)\]\((?!https?:|#|mailto:)([^)\s]+)\)/g
+/** `<img … src="target">` with a relative target. */
+const RELATIVE_IMG = /(<img\b[^>]*?\bsrc=")(?!https?:|data:)([^"]+)(")/g
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
 const DEPENDENCY_FIELDS = ['dependencies', 'peerDependencies', 'optionalDependencies', 'devDependencies']
@@ -76,23 +82,28 @@ export function pinManifest(manifest, versions) {
 }
 
 /**
- * Make every relative Markdown link absolute, so it works where the file is
- * shown outside the repository (npmjs.com). Anchors survive; `#anchor`,
- * `http(s):`, and `mailto:` links are left alone.
+ * Make every relative Markdown link and image absolute, so it works where the
+ * file is shown outside the repository (npmjs.com). Links point at GitHub
+ * pages (`baseUrl`); images — `![alt](…)` and `<img src="…">` — point at the
+ * raw files (`rawBaseUrl`), because a GitHub page is not an image. Anchors
+ * survive; `#anchor`, `http(s):`, and `mailto:` links are left alone.
  * @param {string} markdown - README text.
  * @param {string} baseUrl - URL of the directory the links are relative to, ending in `/`.
+ * @param {string} [rawBaseUrl] - raw-file URL of the same directory, ending in `/`.
  * @returns {string} the rewritten text.
  */
-export function absolutizeLinks(markdown, baseUrl) {
-  return markdown.replace(RELATIVE_LINK, (_, target) => `](${new URL(target, baseUrl).href})`)
+export function absolutizeLinks(markdown, baseUrl, rawBaseUrl = baseUrl) {
+  return markdown
+    .replace(RELATIVE_LINK, (_, bang, text, target) => `${bang}[${text}](${new URL(target, bang === '!' ? rawBaseUrl : baseUrl).href})`)
+    .replace(RELATIVE_IMG, (_, head, target, tail) => `${head}${new URL(target, rawBaseUrl).href}${tail}`)
 }
 
 /**
  * @param {string} markdown - README text.
- * @returns {string[]} relative link targets left in the text.
+ * @returns {string[]} relative link and image targets left in the text.
  */
 export function relativeLinks(markdown) {
-  return [...markdown.matchAll(RELATIVE_LINK)].map(match => match[1])
+  return [...[...markdown.matchAll(RELATIVE_LINK)].map(match => match[3]), ...[...markdown.matchAll(RELATIVE_IMG)].map(match => match[2])]
 }
 
 /**
@@ -104,12 +115,14 @@ export function relativeLinks(markdown) {
 export function npmReadmes(dir, ref) {
   const fromRoot = README_FROM_ROOT.has(dir)
   const sourceDir = fromRoot ? '.' : dir
-  const baseUrl = `${REPOSITORY_URL}/blob/${ref}/${sourceDir === '.' ? '' : `${sourceDir}/`}`
+  const path = sourceDir === '.' ? '' : `${sourceDir}/`
+  const baseUrl = `${REPOSITORY_URL}/blob/${ref}/${path}`
+  const rawBaseUrl = `${RAW_URL}/${ref}/${path}`
   const files = new Map()
   for (const name of README_FILES) {
     const source = join(root, sourceDir, name)
     if (!existsSync(source)) continue
-    files.set(join(root, dir, name), absolutizeLinks(readFileSync(source, 'utf8'), baseUrl))
+    files.set(join(root, dir, name), absolutizeLinks(readFileSync(source, 'utf8'), baseUrl, rawBaseUrl))
   }
   return files
 }

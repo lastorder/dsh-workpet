@@ -1,11 +1,13 @@
 /**
- * The Consumer: a draggable pet in `shell.overlay` that mirrors the main-view
- * Session through the selected skin.
+ * The Consumer: one draggable pet in `shell.overlay` per registered skin. The
+ * pets share the main-view Session's facts (running, waiting, celebrating,
+ * asleep) and each keeps its own position, dragging, and petting.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react'
-import type { WorkpetScene, WorkpetService } from './contract.ts'
+import type { WorkpetScene, WorkpetService, WorkpetSkin } from './contract.ts'
 import type { Translate } from './locale.ts'
-import { deriveScene, mainSessionId, runningHelpers, type SessionListLike, type SessionStatusLike } from './scene.ts'
+import { clampPosition, loadPosition, savePosition, type Position, type PositionStorage, type Viewport } from './placement.ts'
+import { deriveScene, mainSessionId, runningHelpers, type SceneInput, type SessionListLike, type SessionStatusLike } from './scene.ts'
 import type { ChatSignalTable } from './signals.ts'
 import { PetStage } from './stage.tsx'
 
@@ -31,45 +33,25 @@ export const TIMING = {
   sleepCheck: 5_000,
 } as const
 
-const POSITION_KEY = 'dsh-workpet:position'
-const DEFAULT_POSITION = { right: 28, bottom: 96 }
-
-interface Position { readonly right: number; readonly bottom: number }
-
-function loadPosition(): Position {
-  try {
-    const raw = globalThis.localStorage?.getItem(POSITION_KEY)
-    if (raw != null) {
-      const parsed = JSON.parse(raw) as Partial<Position>
-      if (typeof parsed.right === 'number' && typeof parsed.bottom === 'number') return clamp({ right: parsed.right, bottom: parsed.bottom })
-    }
-  } catch (error) {
-    // Unreadable or corrupt entry: start from the default corner.
-    void error
-  }
-  return DEFAULT_POSITION
-}
-
-function savePosition(position: Position): void {
-  try {
-    globalThis.localStorage?.setItem(POSITION_KEY, JSON.stringify(position))
-  } catch (error) {
-    // Storage unavailable: the position lasts for this page only.
-    void error
-  }
-}
-
-function clamp(position: Position): Position {
-  const width = typeof window === 'undefined' ? 1200 : window.innerWidth
-  const height = typeof window === 'undefined' ? 800 : window.innerHeight
-  return {
-    right: Math.min(Math.max(position.right, 4), Math.max(4, width - 124)),
-    bottom: Math.min(Math.max(position.bottom, 4), Math.max(4, height - 108)),
-  }
-}
+/** Session facts every pet shares; dragging and petting belong to each pet. */
+type SharedFacts = Omit<SceneInput, 'dragging' | 'petted'>
 
 const NO_STATUS: StatusSnapshot = { get: () => undefined }
 const identity = <T,>(value: T): T => value
+
+function browserStorage(): PositionStorage | undefined {
+  try {
+    return globalThis.localStorage ?? undefined
+  } catch (error) {
+    // Storage blocked by the browser: positions last for this page only.
+    void error
+    return undefined
+  }
+}
+
+function viewport(): Viewport {
+  return typeof window === 'undefined' ? { width: 1200, height: 800 } : { width: window.innerWidth, height: window.innerHeight }
+}
 
 /**
  * Localized one-line status for a scene.
@@ -86,7 +68,11 @@ export function statusText(t: Translate, scene: WorkpetScene): string {
   }
 }
 
-function toneOf(scene: WorkpetScene): 'warn' | 'error' | 'done' | undefined {
+/**
+ * @param scene - current scene.
+ * @returns the color tone of its status text, if any.
+ */
+export function toneOf(scene: WorkpetScene): 'warn' | 'error' | 'done' | undefined {
   if (scene.activity === 'awaiting' || scene.activity === 'retrying') return 'warn'
   if (scene.activity === 'error') return 'error'
   if (scene.activity === 'done') return 'done'
@@ -102,7 +88,7 @@ function toneOf(scene: WorkpetScene): 'warn' | 'error' | 'done' | undefined {
 export function createOverlay(workpet: WorkpetService, signals: ChatSignalTable): (props: OverlayProps) => ReactNode {
   return function WorkpetOverlay(props: OverlayProps): ReactNode {
     const { t } = props
-    const registry = useSyncExternalStore(workpet.subscribe, workpet.getSnapshot, workpet.getSnapshot)
+    const { skins } = useSyncExternalStore(workpet.subscribe, workpet.getSnapshot, workpet.getSnapshot)
     const sessions = (props.useSessions ?? fallbackHook<SessionListLike | undefined>(undefined))(identity)
     const statuses = (props.useSessionStatus ?? fallbackHook<StatusSnapshot>(NO_STATUS))(identity) ?? NO_STATUS
     const panel = (props.usePanelInfo ?? fallbackHook<{ activePanelId: string | null }>({ activePanelId: null }))(identity)
@@ -113,55 +99,6 @@ export function createOverlay(workpet: WorkpetService, signals: ChatSignalTable)
     const pending = status?.pendingInteraction?.kind
     const helpers = sessionId === undefined ? 0 : runningHelpers(sessions, id => statuses.get(id), sessionId)
     const signal = useSyncExternalStore(signals.subscribe, () => signals.read(sessionId), () => undefined)
-
-    // --- position and dragging ---------------------------------------------
-    const [position, setPosition] = useState(loadPosition)
-    const [dragging, setDragging] = useState(false)
-    const drag = useRef<{ x: number; y: number; from: Position; moved: boolean } | null>(null)
-    useEffect(() => {
-      const onResize = (): void => setPosition(clamp)
-      window.addEventListener('resize', onResize)
-      return () => window.removeEventListener('resize', onResize)
-    }, [])
-
-    // --- petting -------------------------------------------------------------
-    const [petted, setPetted] = useState(false)
-    const pettedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-    const pet = useCallback(() => {
-      setPetted(true)
-      clearTimeout(pettedTimer.current)
-      pettedTimer.current = setTimeout(() => setPetted(false), TIMING.petted)
-    }, [])
-    useEffect(() => () => clearTimeout(pettedTimer.current), [])
-
-    const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0) return
-      drag.current = { x: event.clientX, y: event.clientY, from: position, moved: false }
-      event.currentTarget.setPointerCapture?.(event.pointerId)
-    }, [position])
-    const onPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-      const state = drag.current
-      if (state === null) return
-      const dx = event.clientX - state.x
-      const dy = event.clientY - state.y
-      if (!state.moved && Math.hypot(dx, dy) > 4) {
-        state.moved = true
-        setDragging(true)
-      }
-      if (state.moved) setPosition(clamp({ right: state.from.right - dx, bottom: state.from.bottom - dy }))
-    }, [])
-    const onPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-      const state = drag.current
-      drag.current = null
-      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-      if (state === null) return
-      if (state.moved) {
-        setDragging(false)
-        setPosition(current => { savePosition(current); return current })
-      } else {
-        pet()
-      }
-    }, [pet])
 
     // --- turn-end celebration -------------------------------------------------
     const [celebration, setCelebration] = useState<'done' | 'error' | undefined>(undefined)
@@ -198,46 +135,119 @@ export function createOverlay(workpet: WorkpetService, signals: ChatSignalTable)
       return () => clearInterval(timer)
     }, [running, pending, sessionId])
 
-    const skin = registry.current
-    if (skin === undefined) return null
+    if (skins.length === 0) return null
 
-    const scene = deriveScene({
-      hasSession: sessionId !== undefined, running, pending, signal, helpers, dragging, petted, celebration, asleep,
-    })
-    const label = statusText(t, scene)
-    const tone = toneOf(scene)
-    const alert = scene.activity === 'awaiting' || scene.activity === 'done' || scene.activity === 'error'
-    const title = sessionId === undefined ? t('overlay.hint') : `${sessions?.byId?.[sessionId]?.displayTitle ?? ''}\n${label}`.trim()
+    const facts: SharedFacts = { hasSession: sessionId !== undefined, running, pending, signal, helpers, celebration, asleep }
+    const sessionTitle = sessionId === undefined ? undefined : sessions?.byId?.[sessionId]?.displayTitle ?? ''
     const showLabel = panel?.activePanelId == null
 
     return (
-      <div
-        className="wp-root"
-        data-skin={skin.id}
-        data-activity={scene.activity}
-        data-dragging={dragging ? 'true' : 'false'}
-        data-alert={alert ? 'true' : 'false'}
-        style={{ right: position.right, bottom: position.bottom }}
-        role="button"
-        tabIndex={0}
-        title={title}
-        aria-label={`${t('overlay.label')}: ${label}`}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onKeyDown={event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            pet()
-          }
-        }}
-      >
-        <div className="wp-stage"><PetStage skin={skin} scene={scene} /></div>
-        {showLabel && <div className="wp-label" data-tone={tone ?? ''} aria-hidden="true">{label}</div>}
-      </div>
+      <>
+        {skins.map((skin, index) => (
+          <PetSprite key={skin.id} skin={skin} index={index} facts={facts} t={t} sessionTitle={sessionTitle} showLabel={showLabel} />
+        ))}
+      </>
     )
   }
+}
+
+interface PetSpriteProps {
+  readonly skin: WorkpetSkin
+  /** Place in skin order; picks the default slot of a pet that was never moved. */
+  readonly index: number
+  readonly facts: SharedFacts
+  readonly t: Translate
+  /** Display title of the main-view Session; undefined when none is open. */
+  readonly sessionTitle: string | undefined
+  readonly showLabel: boolean
+}
+
+/** One pet: its own position, dragging, and petting over the shared facts. */
+function PetSprite({ skin, index, facts, t, sessionTitle, showLabel }: PetSpriteProps): ReactNode {
+  // --- position and dragging -------------------------------------------------
+  const [position, setPosition] = useState(() => loadPosition(browserStorage(), skin.id, index, viewport()))
+  const [dragging, setDragging] = useState(false)
+  const drag = useRef<{ x: number; y: number; from: Position; to: Position; moved: boolean } | null>(null)
+  useEffect(() => {
+    const onResize = (): void => setPosition(current => clampPosition(current, viewport()))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // --- petting -----------------------------------------------------------------
+  const [petted, setPetted] = useState(false)
+  const pettedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const pet = useCallback(() => {
+    setPetted(true)
+    clearTimeout(pettedTimer.current)
+    pettedTimer.current = setTimeout(() => setPetted(false), TIMING.petted)
+  }, [])
+  useEffect(() => () => clearTimeout(pettedTimer.current), [])
+
+  const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    drag.current = { x: event.clientX, y: event.clientY, from: position, to: position, moved: false }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }, [position])
+  const onPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const state = drag.current
+    if (state === null) return
+    const dx = event.clientX - state.x
+    const dy = event.clientY - state.y
+    if (!state.moved && Math.hypot(dx, dy) > 4) {
+      state.moved = true
+      setDragging(true)
+    }
+    if (!state.moved) return
+    state.to = clampPosition({ right: state.from.right - dx, bottom: state.from.bottom - dy }, viewport())
+    setPosition(state.to)
+  }, [])
+  const onPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const state = drag.current
+    drag.current = null
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (state === null) return
+    if (state.moved) {
+      setDragging(false)
+      savePosition(browserStorage(), skin.id, state.to)
+    } else {
+      pet()
+    }
+  }, [pet, skin.id])
+
+  const scene = deriveScene({ ...facts, dragging, petted })
+  const label = statusText(t, scene)
+  const tone = toneOf(scene)
+  const alert = scene.activity === 'awaiting' || scene.activity === 'done' || scene.activity === 'error'
+  const title = sessionTitle === undefined ? t('overlay.hint') : `${sessionTitle}\n${label}`.trim()
+
+  return (
+    <div
+      className="wp-root"
+      data-skin={skin.id}
+      data-activity={scene.activity}
+      data-dragging={dragging ? 'true' : 'false'}
+      data-alert={alert ? 'true' : 'false'}
+      style={{ right: position.right, bottom: position.bottom }}
+      role="button"
+      tabIndex={0}
+      title={title}
+      aria-label={`${t('overlay.label')} · ${skin.title()}: ${label}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          pet()
+        }
+      }}
+    >
+      <div className="wp-stage"><PetStage skin={skin} scene={scene} /></div>
+      {showLabel && <div className="wp-label" data-tone={tone ?? ''} aria-hidden="true">{label}</div>}
+    </div>
+  )
 }
 
 function fallbackHook<S>(value: S): SelectorHook<S> {

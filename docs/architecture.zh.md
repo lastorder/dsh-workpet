@@ -11,7 +11,7 @@ dsh-workpet 把「用宠物动作表现会话状态」做成 DeepSeek Harness �
 - [接口](#the-interface)
 - [数据流](#data-flow)
 - [状态优先级](#activity-precedence)
-- [形象选择与配置页](#selection-and-the-configuration-page)
+- [屏幕上的宠物与配置页](#pets-on-screen-and-the-configuration-page)
 - [编写新形象](#writing-a-new-appearance)
 - [已知限制](#limitations)
 
@@ -22,24 +22,24 @@ dsh-workpet 把「用宠物动作表现会话状态」做成 DeepSeek Harness �
 
 | 角色 | 负责什么 | 包 |
 |---|---|---|
-| **Service Definition（服务定义）** | `ctx.workpet`（`WorkpetService`）：形象注册表、用户选择，以及词汇类型（`WorkpetScene`、`WorkpetSkin` 等） | `dsh-workpet` |
+| **Service Definition（服务定义）** | `ctx.workpet`（`WorkpetService`）：形象注册表，以及词汇类型（`WorkpetScene`、`WorkpetSkin` 等） | `dsh-workpet` |
 | **Service Provider（服务提供方）** | 一种形象：一个 `WorkpetSkin`，其 `Figure` 能为任意场景画出这只宠物 | `dsh-workpet-cat`（默认）、`dsh-workpet-parrot`（独立仓库）、任意第三方 |
-| **Consumer（消费方）** | 读取主视图会话，每次渲染推导一个 `WorkpetScene`，用当前形象绘制：悬浮宠物、Chat 探针、形象下拉框 | `dsh-workpet` |
+| **Consumer（消费方）** | 读取主视图会话，每次渲染推导一个 `WorkpetScene`，为每个已注册的形象画一只宠物；另外还有给宠物供数据的 Chat 探针，以及配置页（形象卡片、动作预览） | `dsh-workpet` |
 
-定义与消费方放在同一个包，因为它们是同一件事：注册表只为悬浮宠物服务，下拉框修改的正是注册表里的选择。提供方只在类型层面依赖定义；运行时通过依赖注入拿到 `ctx.workpet`，不引入它的任何代码。
+定义与消费方放在同一个包，因为它们是同一件事：注册表只为悬浮宠物和配置页服务。这里没有“选择”：形象的插件启用时它就在屏幕上，所以插件管理里的开关就是唯一的控制方式。提供方只在类型层面依赖定义；运行时通过依赖注入拿到 `ctx.workpet`，不引入它的任何代码。
 
 ```mermaid
 flowchart LR
   subgraph def["dsh-workpet（定义 + 消费方）"]
     R["ctx.workpet<br/>WorkpetRegistry"]
-    O["shell.overlay<br/>悬浮宠物"]
+    O["shell.overlay<br/>每个形象一只宠物"]
     PR["conversation.composer.dock<br/>Chat 探针"]
-    CP["plugins.bundle.config<br/>形象下拉框"]
+    CP["plugins.bundle.config<br/>形象卡片 + 动作预览"]
   end
   CAT["dsh-workpet-cat<br/>（默认形象）"] -- "register(skin)" --> R
   PAR["dsh-workpet-parrot<br/>（另一个组合包）"] -- "register(skin)" --> R
-  R -- "当前形象" --> O
-  R -- "形象列表 + select(id)" --> CP
+  R -- "形象列表" --> O
+  R -- "形象列表" --> CP
   PR -- "ChatSignal" --> O
 ```
 
@@ -53,7 +53,7 @@ flowchart LR
 | `dsh-workpet` | `dsh-workpet` | 空 `apply` | 提供 `ctx.workpet`；注册悬浮宠物、探针和配置页 |
 | `dsh-workpet-cat` | `dsh-workpet-cat` | 空 `apply` | `inject = ['workpet', 'locale']`；注册形象 `cat` |
 
-`dsh-workpet` 是**组合包（bundle）**：它的 `cordis.patch.yml` 插入两行，`package.json` 把 `dsh-workpet-cat` 声明为依赖。DeepSeek Harness 从 profile 以及每个已选组合包的依赖闭包（从组合包自己的目录解析）中解析行名，所以安装 `dsh-workpet` 后 `dsh-workpet-cat` 无需再装一次就能被解析。`dsh-workpet-cat` 本身不是组合包：两个组合包插入同一个行 id 会冲突。小猫之所以是默认形象，是因为它的 `order`（0）排在最前；在组合包页面关闭这一行后剩下其它形象。第三方形象是独立的组合包。
+`dsh-workpet` 是**组合包（bundle）**：它的 `cordis.patch.yml` 插入两行，`package.json` 把 `dsh-workpet-cat` 声明为依赖。DeepSeek Harness 从 profile 以及每个已选组合包的依赖闭包（从组合包自己的目录解析）中解析行名，所以安装 `dsh-workpet` 后 `dsh-workpet-cat` 无需再装一次就能被解析。`dsh-workpet-cat` 本身不是组合包：两个组合包插入同一个行 id 会冲突。小猫站在默认角落，是因为它的 `order`（0）排在最前；在组合包页面关闭这一行，小猫就会消失，剩下其它形象。第三方形象是独立的组合包。
 
 DeepSeek Harness 0.2.0 只在启动时计算这张包表，所以首次安装后需要重启一次，小猫那一行才能解析；0.2.1 会在每次安装后刷新。
 
@@ -82,8 +82,8 @@ interface WorkpetScene {
 }
 
 interface WorkpetSkin {
-  readonly id: string        // 稳定的 [a-z0-9-]+；用户选择按 id 保存
-  readonly order?: number    // 下拉框顺序；排第一的形象是兜底
+  readonly id: string        // 稳定的 [a-z0-9-]+；宠物在屏幕上的位置按 id 保存
+  readonly order?: number    // 排列顺序：屏幕上从角落往左排，配置页上也按它排
   title(): string            // 本地化名称，渲染时读取
   description?(): string
   readonly Figure: ComponentType<{ scene: WorkpetScene; compact?: boolean }>
@@ -91,9 +91,8 @@ interface WorkpetSkin {
 
 interface WorkpetService {            // ctx.workpet
   readonly stage: { width: 100; height: 80 }
-  register(skin: WorkpetSkin): () => void
-  select(id: string): void
-  getSnapshot(): { skins; selectedId; current }
+  register(skin: WorkpetSkin): () => void   // 宠物出现；返回的函数让它消失
+  getSnapshot(): { skins }                  // 所有已注册的形象，按顺序
   subscribe(listener: () => void): () => void
 }
 ```
@@ -101,7 +100,7 @@ interface WorkpetService {            // ctx.workpet
 职责划分保证每种形象行为一致：
 
 - **Figure** 只画宠物本身，画在 `viewBox="0 0 100 80"` 里，并覆盖全部状态。`compact` 为真时（子智能体小伙伴、预览）可以简化。
-- **Consumer** 负责位置、拖拽、抚摸、状态气泡、工具角标（💻 🔍 ✏️ 🌐 🤝 📋 ❓ 🔧）、子智能体小伙伴（最多两个同一 Figure 的缩小版）以及特效：爱心、星星、`z`、`!`、`?`、`…`、`↻`。
+- **Consumer** 负责每只宠物的位置、拖拽、抚摸、状态气泡、工具角标（💻 🔍 ✏️ 🌐 🤝 📋 ❓ 🔧）、子智能体小伙伴（最多两个同一 Figure 的缩小版）以及特效：爱心、星星、`z`、`!`、`?`、`…`、`↻`。
 - 抛异常的 Figure 会被错误边界拦住，slot 和页面其余部分照常工作。
 
 <a id="data-flow"></a>
@@ -109,7 +108,7 @@ interface WorkpetService {            // ctx.workpet
 
 1. **探针**（`conversation.composer.dock`，会话作用域，不渲染任何内容）。通过标准的 `useChat` hook 读取会话的 Chat 目标——`legacy.runningCalls`、`legacy.partial`、`legacy.nodes`——发布一个 `ChatSignal`：实时活动（工具、重试、写作、思考）以及最新的已定节点是否为回合错误。
 2. **悬浮宠物**（`shell.overlay`，根作用域）。读取标准的 `useSessions`、`useSessionStatus`、`usePanelInfo` hook：`retainedBy.mainView` 计数大于 0 的会话就是主视图会话；`running` 与 `pendingInteraction` 来自它的状态；小伙伴数是它的 `subagentCatalog` 投影里正在运行的条目数。把这些事实与探针信号、本地交互状态合并后调用 `deriveScene`。
-3. **形象**。悬浮宠物用场景渲染 `snapshot.current.Figure`。
+3. **形象**。`snapshot.skins` 里每个形象画一只宠物。宠物们共享会话事实（运行、等你、回合结束的庆祝、打瞌睡），拖拽和抚摸则各管各的，所以拖小猫时只有小猫在晃。
 
 插件不新增 Host 服务、不发网络请求、不写会话事件；它只读取对话视图本来就在渲染的 Client 状态。
 
@@ -134,17 +133,19 @@ interface WorkpetService {            // ctx.workpet
 | 12 | 空闲超过 70 秒 | `sleeping` |
 | 13 | 其它 | `idle` |
 
-状态气泡在鼠标悬停时出现，在 `awaiting`、`done`、`error` 时常驻。
+状态气泡在鼠标悬停时出现。`awaiting`、`done`、`error` 时每只宠物下方都会常驻，不管宠物被拖到哪里都能看到；默认位置间距足够，气泡不会互相重叠。
 
-<a id="selection-and-the-configuration-page"></a>
-## 形象选择与配置页
+<a id="pets-on-screen-and-the-configuration-page"></a>
+## 屏幕上的宠物与配置页
+
+每个已注册的形象都是屏幕上的一只宠物。安装或启用一个形象插件，不用任何设置就会多一只宠物；关闭它，宠物立即消失，因为注册挂在提供方的 `ctx.effect` 上。默认小猫是**工作宠物**组合包页面上的 `dsh-workpet-cat` 行；其它形象是各自独立的组合包。
+
+每只宠物的位置单独保存在 `localStorage` 的 `dsh-workpet:position:<形象 id>` 下，并限制在窗口内。没拖动过的宠物站在默认位置：按 `order` 排第一的在右下角，后面的每隔 150 px 往左排。排第一的宠物还会读取旧版本使用的唯一键 `dsh-workpet:position`，所以原来的小猫会留在原地。
 
 **插件 → 工作宠物** 的组合包页面里有一块通过 `plugins.bundle.config` slot 贡献的区域，以包名 `dsh-workpet` 为 key：
 
-- **形象**下拉框按 `order` 列出所有已注册的形象；选择后调用 `ctx.workpet.select(id)`，悬浮宠物立即切换；
-- **预览动作**下拉框加一个实时预览区，可以查看当前形象在任意状态下的样子。
-
-选择是 Client 侧偏好，保存在 `localStorage` 的 `dsh-workpet:skin` 下，并通过 `storage` 事件在多个标签页之间同步。保存的 id 没有注册时（对应组合包已关闭或卸载），绘制排第一的形象，配置页会给出提示；保存的 id 不会被清掉，组合包回来后选择也会恢复。
+- **形象卡片**：按 `order` 每个已注册形象一张，卡片里是一个小舞台、形象名称、描述和状态气泡；最后一张卡片说明怎样添加更多宠物，并链接到 dsh-workpet-parrot 仓库（没有任何形象时，说明怎样把小猫找回来）；标题旁的 **GitHub** 链接打开本仓库；
+- **动作预览**：所有动作都以按钮列出，分为日常、工作中、等你、回合结束、互动五组。点一个就高亮它，所有卡片里的宠物同时表演这个动作；选中“用工具”时多出一排工具种类，用来切换角标。动作目录在 `src/client/preview.ts`。
 
 <a id="writing-a-new-appearance"></a>
 ## 编写新形象
@@ -182,5 +183,5 @@ interface WorkpetService {            // ctx.workpet
 - 宠物只反映主视图会话。
 - 工具分类按工具名匹配，不读取工具元数据。
 - `legacy` 是 Chat 目标的兼容切片；如果将来的 Harness 移除它，探针将不报告任何内容，运行中的会话会一直显示 `thinking`，直到探针更新。
-- 选择保存在浏览器的 `localStorage`，所以每个浏览器 profile（以及来自不同 origin 的桌面窗口）各自保存。
+- 位置保存在浏览器的 `localStorage`，所以每个浏览器 profile（以及来自不同 origin 的桌面窗口）各自保存。
 - 抚摸、庆祝、入睡等时长是 `overlay.tsx` 里的常量；Host 半侧没有把配置送到浏览器的通道。

@@ -41,6 +41,18 @@ export function categorizeTool(name: string): WorkpetToolCategory {
   return 'other'
 }
 
+/** Badge glyph of each tool family, drawn by the stage and the preview controls. */
+export const TOOL_GLYPH: Readonly<Record<WorkpetToolCategory, string>> = {
+  shell: '💻',
+  search: '🔍',
+  edit: '✏️',
+  web: '🌐',
+  delegate: '🤝',
+  plan: '📋',
+  ask: '❓',
+  other: '🔧',
+}
+
 /**
  * @param kind - `SessionStatus.pendingInteraction.kind`.
  * @returns the awaited interaction family.

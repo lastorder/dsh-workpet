@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Work Pet",
-    "description": "A floating pet that acts out what the current session is doing: thinking, writing, running tools, waiting for you, or dozing off. Pick its appearance on this page; other plugins can add more."
+    "description": "A floating pet that acts out what the current session is doing: thinking, writing, running tools, waiting for you, or dozing off. Every enabled appearance is a pet on screen: switch appearance plugins on or off to choose, and other plugins can add more."
   }
 }
