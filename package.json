@@ -20,7 +20,7 @@
     "prepublishOnly": "node -e \"console.error('dsh-workpet-root is the private workspace root and is never published. Publish the packages with: pnpm run release:publish'); process.exit(1)\""
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/react": "~18.3.12",
     "esbuild": "^0.28.2",
     "react": "18.3.1",
