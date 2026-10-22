@@ -1,6 +1,6 @@
 {
   "name": "dsh-workpet",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Work pet capability for DeepSeek Harness: a floating pet whose actions mirror what the current Session is doing, with swappable appearances contributed by other plugins.",
   "license": "MIT",
   "type": "module",

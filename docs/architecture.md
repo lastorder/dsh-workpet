@@ -128,8 +128,8 @@ The plugin adds no Host service, no network request, and no session event; it re
 | 7 | Running, the streaming step has visible text or reasoning | `writing` |
 | 8 | Running otherwise | `thinking` |
 | 9 | Idle with running child agents | `delegating` |
-| 10 | Just stopped (2.6 s) | `done` |
-| 11 | Just stopped with a turn error (5.2 s) | `error` |
+| 10 | Just stopped (6 s) | `done` |
+| 11 | Just stopped with a turn error (10 s) | `error` |
 | 12 | Idle for 70 s | `sleeping` |
 | 13 | Otherwise | `idle` |
 

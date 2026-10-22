@@ -128,8 +128,8 @@ interface WorkpetService {            // ctx.workpet
 | 7 | 运行中，流式步骤已有可见文本或推理 | `writing` |
 | 8 | 其它运行情况 | `thinking` |
 | 9 | 空闲但子智能体仍在运行 | `delegating` |
-| 10 | 刚刚停止（2.6 秒） | `done` |
-| 11 | 刚刚因回合错误停止（5.2 秒） | `error` |
+| 10 | 刚刚停止（6 秒） | `done` |
+| 11 | 刚刚因回合错误停止（10 秒） | `error` |
 | 12 | 空闲超过 70 秒 | `sleeping` |
 | 13 | 其它 | `idle` |
 

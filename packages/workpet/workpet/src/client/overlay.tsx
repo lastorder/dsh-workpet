@@ -25,9 +25,9 @@ export interface OverlayProps {
 
 /** Timing of the overlay's transient states, in milliseconds. */
 export const TIMING = {
-  petted: 1600,
-  done: 2600,
-  error: 5200,
+  petted: 3200,
+  done: 6000,
+  error: 10_000,
   /** Idle time before the pet falls asleep. */
   sleepAfter: 70_000,
   sleepCheck: 5_000,
@@ -102,25 +102,52 @@ export function createOverlay(workpet: WorkpetService, signals: ChatSignalTable)
 
     // --- turn-end celebration -------------------------------------------------
     const [celebration, setCelebration] = useState<'done' | 'error' | undefined>(undefined)
+    const celebrationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+    const clearCelebrationTimer = (): void => {
+      if (celebrationTimer.current !== undefined) clearTimeout(celebrationTimer.current)
+      celebrationTimer.current = undefined
+    }
+    const showCelebration = (outcome: 'done' | 'error'): void => {
+      clearCelebrationTimer()
+      setCelebration(outcome)
+      celebrationTimer.current = setTimeout(() => {
+        celebrationTimer.current = undefined
+        setCelebration(undefined)
+      }, outcome === 'error' ? TIMING.error : TIMING.done)
+    }
     const observed = useRef({ sessionId, running })
     const idleSince = useRef(Date.now())
+    useEffect(() => () => clearCelebrationTimer(), [])
     const failedRef = useRef(false)
     failedRef.current = signal?.lastTurnFailed ?? false
     useEffect(() => {
       const previous = observed.current
       observed.current = { sessionId, running }
       if (running || previous.sessionId !== sessionId) {
+        clearCelebrationTimer()
         setCelebration(undefined)
         idleSince.current = Date.now()
         return undefined
       }
       idleSince.current = Date.now()
       if (!previous.running) return undefined
-      const outcome = failedRef.current ? 'error' : 'done'
-      setCelebration(outcome)
-      const timer = setTimeout(() => setCelebration(undefined), outcome === 'error' ? TIMING.error : TIMING.done)
-      return () => clearTimeout(timer)
+      showCelebration(failedRef.current ? 'error' : 'done')
+      return undefined
     }, [sessionId, running])
+
+    // A failure can settle after `running` already dropped (or without a run
+    // ever being observed), so a fresh failed turn upgrades or starts the
+    // error celebration. Switching Sessions only re-baselines.
+    const failed = signal?.lastTurnFailed ?? false
+    const failedSeen = useRef({ sessionId, failed })
+    useEffect(() => {
+      const previous = failedSeen.current
+      failedSeen.current = { sessionId, failed }
+      if (previous.sessionId !== sessionId || !failed || previous.failed || running) return undefined
+      idleSince.current = Date.now()
+      showCelebration('error')
+      return undefined
+    }, [sessionId, failed, running])
 
     // --- dozing off -----------------------------------------------------------
     const [asleep, setAsleep] = useState(false)
